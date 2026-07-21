@@ -108,23 +108,30 @@ own copy. The ONLY shared state between copies is a lock registry on
 
 ## Consuming the library
 
-Raw TypeScript, bundled by the consumer's esbuild — no build step here:
+Published to npm as a compiled package — a bundled ESM `dist/index.js` plus
+`.d.ts` types:
 
-1. `git submodule add git@github.com:nickolay-kondratyev/obsidian-id-lib.git submodules/obsidian-id-lib`
-2. In the plugin's `package.json`:
-   `"obsidian-id-lib": "file:submodules/obsidian-id-lib"`
-3. `npm install` (fresh clones: `git submodule update --init` first).
+```bash
+npm install obsidian-id-lib
+```
 
-`obsidian` is a types-only peer dependency — it is never bundled (consumers
-mark it external, as every Obsidian plugin build does).
+`obsidian` is a types-only **peer dependency** — never bundled into `dist`
+(all its imports are type-only and elided at build time). Consumers already
+have `obsidian` and mark it external in their plugin build, as every Obsidian
+plugin does.
 
 ## Dev
 
 ```bash
 npm install
 npm test        # vitest (obsidian aliased to src/testSupport/obsidianMock.ts)
-npm run check   # tsc -noEmit (strict)
+npm run check   # tsc -noEmit (strict, whole src incl. tests)
+npm run build   # emit dist/: tsc .d.ts (tsconfig.build.json) + esbuild-bundled index.js
 ```
+
+Publishing: see [`docs-internal/how-to-publish-to-npm.md`](docs-internal/how-to-publish-to-npm.md).
+`prepack` builds `dist/` and `prepublishOnly` runs `check` + tests, so
+`npm publish` always ships a fresh, type-checked, tested build.
 
 Follow-up: add ESLint to this repo (the code arrived lint-clean from the
 visit-history plugin's obsidianmd ESLint setup).
