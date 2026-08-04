@@ -160,20 +160,31 @@ export class ObsidianHarness {
   }
 
   private static async spawnAndConnect(): Promise<ObsidianHarness> {
-    const obsidianProcess = childProcess.spawn(ObsidianHarness.resolveObsidianPath(), [
-      `--user-data-dir=${SANDBOX_CONFIG_DIR}`,
-      // Port 0 = OS-assigned; the concrete endpoint is read from stderr.
-      '--remote-debugging-port=0',
-      // Electron's SUID chrome-sandbox is unavailable in most CI containers
-      // (electron/electron#42510).
-      ...(process.platform === 'linux' ? ['--no-sandbox'] : []),
-      // Escape hatch for environment-specific Chromium flags (e.g.
-      // `--ozone-platform=headless`). Space-separated only — no quoting.
-      ...(process.env['OBSIDIAN_E2E_EXTRA_ARGS']?.split(' ').filter((arg) => arg !== '') ?? []),
-    ]);
+    const obsidianProcess = childProcess.spawn(
+      ObsidianHarness.resolveObsidianPath(),
+      [
+        `--user-data-dir=${SANDBOX_CONFIG_DIR}`,
+        // Port 0 = OS-assigned; the concrete endpoint is read from stderr.
+        '--remote-debugging-port=0',
+        // Electron's SUID chrome-sandbox is unavailable in most CI containers
+        // (electron/electron#42510).
+        ...(process.platform === 'linux' ? ['--no-sandbox'] : []),
+        // Escape hatch for environment-specific Chromium flags (e.g.
+        // `--ozone-platform=headless`). Space-separated only — no quoting.
+        ...(process.env['OBSIDIAN_E2E_EXTRA_ARGS']?.split(' ').filter((arg) => arg !== '') ?? []),
+      ],
+      // stdout is DISCARDED, not piped: nothing in the harness ever reads it, and
+      // an unread pipe fills its OS buffer and then blocks the writing process —
+      // i.e. Obsidian would freeze mid-suite the moment it got chatty on stdout.
+      // stderr must stay a pipe (the DevTools endpoint is announced there) and IS
+      // drained by waitForDevtoolsEndpoint.
+      { stdio: ['ignore', 'ignore', 'pipe'] },
+    );
+    ObsidianHarness.killWithTestRunner(obsidianProcess);
+    let browser: Browser | undefined;
     try {
       const cdpEndpoint = await ObsidianHarness.waitForDevtoolsEndpoint(obsidianProcess);
-      const browser = await chromium.connectOverCDP(cdpEndpoint, { timeout: LAUNCH_TIMEOUT_MS });
+      browser = await chromium.connectOverCDP(cdpEndpoint, { timeout: LAUNCH_TIMEOUT_MS });
       const page = await ObsidianHarness.waitForObsidianWindow(browser);
       // Before layoutReady: Obsidian sizes panes off the viewport it observes.
       await ObsidianHarness.applyViewportSize(page);
@@ -181,9 +192,33 @@ export class ObsidianHarness {
       await ObsidianHarness.enableHostPlugin(page);
       return new ObsidianHarness(browser, obsidianProcess, page);
     } catch (error) {
-      obsidianProcess.kill();
+      // Same teardown as close(): a half-launched harness has no owner, so it must
+      // not leak a CDP connection, and it must WAIT for the app to exit — an
+      // unawaited Obsidian keeps writing its sandbox config into the dir the next
+      // launch wipes (see killAndWaitForExit).
+      await browser?.close().catch(() => undefined);
+      await ObsidianHarness.killAndWaitForExit(obsidianProcess);
       throw error;
     }
+  }
+
+  /**
+   * Ties Obsidian's lifetime to the test runner's. WHY: a spawned child does NOT
+   * die with its parent on Linux, so an aborted run (Ctrl-C, a crashed reporter,
+   * `--max-failures`) leaves a live Obsidian holding the sandbox `--user-data-dir`.
+   * The NEXT run then wipes that dir underneath it and boots a second instance on
+   * the same throwaway vault — two apps writing the files the specs assert on.
+   * Observed in practice, which is why this is a guard and not a theoretical one.
+   *
+   * SIGKILL, not SIGTERM: `exit` handlers may only do synchronous work, so there
+   * is no way to await a graceful shutdown here. The orderly path is `close()`.
+   */
+  private static killWithTestRunner(proc: childProcess.ChildProcess): void {
+    const killNow = (): void => {
+      proc.kill('SIGKILL');
+    };
+    process.once('exit', killNow);
+    proc.once('exit', () => process.off('exit', killNow));
   }
 
   /**
@@ -266,25 +301,39 @@ export class ObsidianHarness {
   private static waitForDevtoolsEndpoint(proc: childProcess.ChildProcess): Promise<string> {
     return new Promise<string>((resolve, reject) => {
       let stderrSoFar = '';
-      const timer = setTimeout(() => {
-        reject(new Error(`Obsidian never announced a DevTools endpoint. stderr so far:\n${stderrSoFar}`));
-      }, LAUNCH_TIMEOUT_MS);
-      proc.stderr?.on('data', (chunk: Buffer) => {
+      const onStderr = (chunk: Buffer): void => {
         stderrSoFar += chunk.toString();
-        const match = stderrSoFar.match(/DevTools listening on (ws:\/\/\S+)/);
-        if (match?.[1] !== undefined) {
-          clearTimeout(timer);
-          resolve(match[1]);
+        const endpoint = stderrSoFar.match(/DevTools listening on (ws:\/\/\S+)/)?.[1];
+        if (endpoint !== undefined) {
+          settle(() => resolve(endpoint));
         }
-      });
-      proc.on('exit', (code) => {
+      };
+      const onExit = (code: number | null): void => {
+        settle(() => reject(new Error(`Obsidian exited before CDP was available: code=[${code}]\n${stderrSoFar}`)));
+      };
+      const onError = (error: Error): void => settle(() => reject(error));
+      const timer = setTimeout(() => {
+        settle(() => reject(
+          new Error(`Obsidian never announced a DevTools endpoint. stderr so far:\n${stderrSoFar}`),
+        ));
+      }, LAUNCH_TIMEOUT_MS);
+
+      // Detach on settle. WHY: these listeners would otherwise live for the whole
+      // suite — re-matching an ever-growing stderr buffer on every chunk (O(n²))
+      // and holding all of Obsidian's session output in memory. `resume()` keeps
+      // the stream drained afterwards so the pipe can never block the app.
+      function settle(finish: () => void): void {
         clearTimeout(timer);
-        reject(new Error(`Obsidian exited before CDP was available: code=[${code}]\n${stderrSoFar}`));
-      });
-      proc.on('error', (error) => {
-        clearTimeout(timer);
-        reject(error);
-      });
+        proc.stderr?.off('data', onStderr);
+        proc.stderr?.resume();
+        proc.off('exit', onExit);
+        proc.off('error', onError);
+        finish();
+      }
+
+      proc.stderr?.on('data', onStderr);
+      proc.on('exit', onExit);
+      proc.on('error', onError);
     });
   }
 

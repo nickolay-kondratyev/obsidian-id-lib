@@ -1,5 +1,5 @@
 import { expect, test } from '@playwright/test';
-import { ObsidianHarness } from './obsidianHarness';
+import { useObsidianHarness } from './harnessSuite';
 
 /**
  * Guards the HARNESS, not the library: real pointer clicks must actually land
@@ -13,22 +13,14 @@ import { ObsidianHarness } from './obsidianHarness';
  * next to the cause.
  */
 
-test.describe.configure({ mode: 'serial' });
-
-let harness: ObsidianHarness;
-
-test.beforeAll(async () => {
-  harness = await ObsidianHarness.launch();
-});
-
-test.afterAll(async () => {
-  await harness.close();
-});
+const obsidian = useObsidianHarness();
 
 test('WHEN a ribbon action is really clicked THEN Obsidian reacts to the pointer event', async () => {
+  const { page } = obsidian();
+
   // Any stock ribbon action with a stable label would do; the command palette
   // is the cheapest one with an unmistakable, self-contained DOM result.
-  await harness.page.locator('[aria-label="Open command palette"]').first().click();
+  await page.locator('[aria-label="Open command palette"]').first().click();
 
-  await expect(harness.page.locator('.prompt input')).toBeVisible();
+  await expect(page.locator('.prompt input')).toBeVisible();
 });
