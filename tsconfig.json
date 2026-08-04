@@ -14,5 +14,6 @@
 		"noEmit": true,
 		"lib": ["ES2021", "DOM"]
 	},
-	"include": ["src/**/*.ts"]
+	// tests/: the domain BDD tier's step definitions, type-checked with src.
+	"include": ["src/**/*.ts", "tests/**/*.ts"]
 }

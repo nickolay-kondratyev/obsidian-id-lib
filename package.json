@@ -48,6 +48,7 @@
 		"check": "tsc -noEmit",
 		"check:e2e": "tsc -noEmit -p e2e/tsconfig.json",
 		"test": "vitest run",
+		"test:domain": "vitest run --project domain",
 		"test:watch": "vitest",
 		"setup:obsidian": "bash scripts/setup-obsidian-bin.sh",
 		"test:e2e": "bash scripts/run-e2e.sh",
@@ -62,6 +63,8 @@
 		"@types/node": "^26.1.2",
 		"esbuild": "0.25.5",
 		"obsidian": "latest",
+		"playwright-bdd": "^9.2.0",
+		"quickpickle": "^1.11.2",
 		"typescript": "^5.8.3",
 		"vitest": "^4.1.10"
 	}

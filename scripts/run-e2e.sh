@@ -29,4 +29,8 @@ fi
 npm run check:e2e
 node e2e/fixtures/host-plugin/build.mjs
 
+# Compiles features/e2e/*.feature into Playwright specs under .tmp/ (gitignored,
+# regenerated every run — generated specs are build output, never source).
+npx bddgen --config e2e/playwright.config.ts
+
 exec npx playwright test --config e2e/playwright.config.ts "$@"
