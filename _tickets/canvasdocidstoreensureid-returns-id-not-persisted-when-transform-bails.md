@@ -2,7 +2,7 @@
 id: nid_37g3zp3ca1k9vxslfrw1i3u3g_e
 title: "CanvasDocIdStore.ensureId returns id not persisted when transform bails"
 status: open
-deps: []
+deps: [nid_ep8dz7rkoyydissrr5e8fvtyy_e]
 links: [nid_iyor6ne71sou9xiy0d4okfc5z_e]
 created_iso: 2026-08-04T17:38:41Z
 status_updated_iso: 2026-08-04T17:38:41Z
@@ -25,6 +25,6 @@ Start with a failing test (see src/CanvasDocIdStore.test.ts; src/testSupport/Con
 ## Acceptance Criteria
 
 - Failing test first: ensureId returns the FOREIGN id when content gains an id between precheck and process.
+- e2e test is added if appropriate.
 - ensureId returns null when content becomes malformed between precheck and process.
 - All existing tests pass (npm test).
-

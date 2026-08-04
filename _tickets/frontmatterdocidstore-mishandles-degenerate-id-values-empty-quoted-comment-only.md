@@ -2,7 +2,7 @@
 id: nid_iyor6ne71sou9xiy0d4okfc5z_e
 title: "FrontmatterDocIdStore mishandles degenerate id values (empty-quoted, comment-only)"
 status: open
-deps: []
+deps: [nid_ep8dz7rkoyydissrr5e8fvtyy_e]
 links: [nid_37g3zp3ca1k9vxslfrw1i3u3g_e]
 created_iso: 2026-08-04T17:38:51Z
 status_updated_iso: 2026-08-04T17:38:51Z
@@ -35,4 +35,4 @@ Start with failing tests in src/FrontmatterDocIdStore.test.ts for: id: "", id: '
 - Failing tests first for id: "", id: '', id: # comment (getId returns null; ensureId fills in place; exactly one id line in resulting frontmatter).
 - No duplicate id key can be produced.
 - All existing tests pass (npm test).
-
+- e2e test is added if appropriate.
