@@ -17,6 +17,26 @@ import { DocIdServices } from 'obsidian-id-lib';
 const docIdService = DocIdServices.createDefault(app.vault);
 ```
 
+Typical wiring — ensure an id whenever a file gains focus:
+
+```ts
+import { Plugin } from 'obsidian';
+import { DocIdServices } from 'obsidian-id-lib';
+
+export default class MyPlugin extends Plugin {
+  async onload() {
+    const docIdService = DocIdServices.createDefault(this.app.vault);
+    this.registerEvent(
+      this.app.workspace.on('file-open', (file) => {
+        if (file !== null && docIdService.isEligible(file)) {
+          void docIdService.ensureDocId(file);
+        }
+      }),
+    );
+  }
+}
+```
+
 Custom wiring (DI form — every piece is behind an interface):
 
 ```ts
@@ -57,8 +77,9 @@ API surface (`DocIdService`):
   (e.g. `docid_a1b2c3d4e5f6g7h8i9j0k1l2_e`). 36^24 > 2^122 — collision space
   above UUID v4. Base36 lowercase keeps ids safe on case-insensitive
   filesystems.
-- **Existing ids of ANY format are honored as-is** (incl. legacy uppercase
-  `docid_{21 base62}_E`) — the file is never rewritten to "fix" an id.
+- **Existing ids of ANY format are honored as-is** (e.g. ids minted by earlier
+  tooling, such as uppercase `docid_{21 base62}_E`) — the file is never
+  rewritten to "fix" an id.
 - An **occupied but unusable id slot** (e.g. `id:` opening a nested mapping,
   or an object value in canvas JSON) is NEVER overwritten — `ensureDocId`
   returns `null`.
@@ -96,6 +117,8 @@ own copy. The ONLY shared state between copies is a lock registry on
 - **Idempotency backstop**: even if the lock is bypassed (a third plugin not
   using the lib), each store re-checks for an existing id INSIDE the atomic
   `Vault.process` transform — the second writer sees the id and bails.
+  (Canvas caveat: see Known issues — the bail is correct on disk, but the
+  returned id can be wrong.)
 - **Byte-preserving writes**: frontmatter edits only add/fill the single id
   line via raw-text editing (deliberately NOT `FileManager.processFrontMatter`,
   which re-serializes the whole block and mangles formatting of keys the
@@ -105,6 +128,20 @@ own copy. The ONLY shared state between copies is a lock registry on
   `console.error` and returns `null`. Empty/whitespace-only canvas content is
   a brand-new canvas (`{}`), not malformed — it gets an id.
 - **Read paths never write.**
+
+## Known issues
+
+Open bugs tracked in `_tickets/` (not shipped in the npm package):
+
+- **Canvas: `ensureDocId` can return an id that was not persisted.** When the
+  canvas gains an id between the precheck read and the atomic write (lock
+  bypassed by a third writer), the write correctly bails but the NEW (unwritten)
+  id is returned instead of the persisted one. Ticket
+  `nid_37g3zp3ca1k9vxslfrw1i3u3g_e`.
+- **Frontmatter: degenerate `id` values mishandled.** `id: ""` / `id: ''`
+  leads to a duplicate `id` key being inserted (invalid YAML); `id: # comment`
+  is read back with the comment text as the id. Ticket
+  `nid_iyor6ne71sou9xiy0d4okfc5z_e`.
 
 ## Consuming the library
 
@@ -135,3 +172,7 @@ Publishing: see [`docs-internal/how-to-publish-to-npm.md`](docs-internal/how-to-
 
 Follow-up: add ESLint to this repo (the code arrived lint-clean from the
 visit-history plugin's obsidianmd ESLint setup).
+
+## License
+
+[MIT](LICENSE.md)
