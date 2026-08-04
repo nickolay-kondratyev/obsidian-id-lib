@@ -69,3 +69,30 @@ this work (`Array.prototype.at` vs `lib: ES2021`, both files from scaffold commi
 a867be8). It also blocks `npm publish` via `prepublishOnly`. Not fixed here
 because the fix is an owner call for a published library → ticket
 `nid_avpmbw0w9cskk57061lcfaw3g_e` (tagged `decide`).
+
+## Notes
+
+**2026-08-04T18:32:22Z**
+
+CORRECTION to "Deliberately left out": window sizing is NOT dropped. Owner wants
+UI-clicking specs later, so the harness now supports real pointer clicks.
+
+Findings while implementing it:
+- The usual workaround (seeding `<userdata>/<vaultId>.json` with 1280x800) is
+  VERIFIED INEFFECTIVE under `--ozone-platform=headless` — Obsidian ignores the
+  seeded geometry and the renderer still reports 300x200. Do not re-add it.
+- What works: `Emulation.setDeviceMetricsOverride` over a CDP session, applied
+  after the vault window appears and BEFORE layoutReady (panes size off the
+  observed viewport). Verified live: renderer reports 1280x800, and a real
+  Playwright click on the "Open command palette" ribbon action opens the palette.
+- Re-applied on every connect, so a future relaunch() gets it too.
+
+Also added for the "new notes get ids" direction:
+- `ObsidianHarness.createFile()` — creates through `vault.create` so the app owns
+  the file (returns nothing; TFile's object graph is circular and cannot cross
+  the CDP serialization boundary).
+- `e2e/docId.e2e.ts`: note created inside the running app gets an id on disk.
+- `e2e/harnessClickability.e2e.ts`: guards that clicks land, so a viewport
+  regression fails loudly next to its cause instead of as a "flaky UI spec".
+
+Suite: 3 passed.

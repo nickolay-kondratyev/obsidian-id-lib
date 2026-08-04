@@ -27,3 +27,11 @@ test('WHEN ensureDocId runs on a note without frontmatter THEN the returned id i
 
   expect(harness.readFileFromDisk('plain.md')).toContain(`id: ${docId}`);
 });
+
+test('WHEN a note is created in the running app THEN ensureDocId puts an id on disk', async () => {
+  await harness.createFile('created-at-runtime.md', 'Born inside a running Obsidian.\n');
+
+  const docId = await harness.ensureDocId('created-at-runtime.md');
+
+  expect(harness.readFileFromDisk('created-at-runtime.md')).toContain(`id: ${docId}`);
+});

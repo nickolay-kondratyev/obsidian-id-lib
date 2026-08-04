@@ -193,6 +193,12 @@ behaviour (canvas serialization, `Vault.process` bytes, `metadataCache`,
 restart round-trip). Everything else stays in the vitest suite; every case here
 costs an Electron boot.
 
+Specs can create notes in the running app (`harness.createFile`) and drive the
+UI with **real pointer clicks** — the harness forces a 1280×800 layout viewport
+via CDP, because headless Obsidian otherwise renders in a ~300×200 window where
+clicks silently miss while DOM assertions still pass.
+`e2e/harnessClickability.e2e.ts` guards exactly that.
+
 Publishing: see [`docs-internal/how-to-publish-to-npm.md`](docs-internal/how-to-publish-to-npm.md).
 `prepack` builds `dist/` and `prepublishOnly` runs `check` + tests, so
 `npm publish` always ships a fresh, type-checked, tested build.

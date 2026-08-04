@@ -33,6 +33,21 @@ const HOST_PLUGIN_BUILD_DIR = path.join(REPO_ROOT, '.tmp', 'host-plugin');
 /** Fixed id for the sandbox `obsidian.json` vault entry (16 hex chars, like Obsidian's own). */
 const E2E_VAULT_ID = '0e2e0e2e0e2e0e2e';
 
+/**
+ * Layout viewport forced onto the renderer. WHY: headless Obsidian boots a
+ * ~300×200 window, in which panes overflow off-screen and REAL pointer clicks
+ * physically miss. DOM-only assertions still pass, so the failure mode is
+ * confusingly partial — it looks like "clicks are broken", not "window is tiny".
+ *
+ * WHY-NOT seeding `<userdata>/<vaultId>.json` with a bigger size (the usual
+ * workaround): VERIFIED INEFFECTIVE here — with `--ozone-platform=headless`
+ * Obsidian ignores the seeded geometry and the renderer still reports 300×200.
+ * The CDP metrics override is what click coordinates actually resolve against,
+ * so it works headless AND on a real display.
+ */
+const VIEWPORT_WIDTH_PX = 1280;
+const VIEWPORT_HEIGHT_PX = 800;
+
 const LAUNCH_TIMEOUT_MS = 60_000;
 /** Graceful-shutdown grace before SIGKILL. */
 const FORCE_KILL_AFTER_MS = 10_000;
@@ -103,6 +118,24 @@ export class ObsidianHarness {
     );
   }
 
+  /**
+   * Creates a file mid-test THROUGH Obsidian (`vault.create`), so the app owns
+   * it exactly as it owns a user-authored note — registered in the vault index
+   * and picked up by metadataCache. Node `fs.writeFileSync` would put the file
+   * on disk behind Obsidian's back and is deliberately not used here.
+   */
+  async createFile(vaultPath: string, content: string): Promise<void> {
+    await this.page.evaluate(
+      // Deliberately returns nothing: `vault.create` resolves with a TFile,
+      // whose object graph is circular (vault/parent) and cannot cross the CDP
+      // serialization boundary.
+      async ({ targetPath, body }) => {
+        await (window as unknown as { app: any }).app.vault.create(targetPath, body);
+      },
+      { targetPath: vaultPath, body: content },
+    );
+  }
+
   /** The file straight off disk — proves the bytes really landed. */
   readFileFromDisk(vaultPath: string): string {
     return fs.readFileSync(path.join(VAULT_COPY_DIR, vaultPath), 'utf8');
@@ -142,6 +175,8 @@ export class ObsidianHarness {
       const cdpEndpoint = await ObsidianHarness.waitForDevtoolsEndpoint(obsidianProcess);
       const browser = await chromium.connectOverCDP(cdpEndpoint, { timeout: LAUNCH_TIMEOUT_MS });
       const page = await ObsidianHarness.waitForObsidianWindow(browser);
+      // Before layoutReady: Obsidian sizes panes off the viewport it observes.
+      await ObsidianHarness.applyViewportSize(page);
       await ObsidianHarness.waitForWorkspaceReady(page);
       await ObsidianHarness.enableHostPlugin(page);
       return new ObsidianHarness(browser, obsidianProcess, page);
@@ -210,6 +245,21 @@ export class ObsidianHarness {
       vaults: { [E2E_VAULT_ID]: { path: vaultDir, ts: Date.now(), open: true } },
     };
     fs.writeFileSync(path.join(SANDBOX_CONFIG_DIR, 'obsidian.json'), JSON.stringify(obsidianJson));
+  }
+
+  /**
+   * Gives the renderer a usable layout viewport so pointer-driven specs can
+   * actually hit what they aim at. Applied on EVERY connect (a future relaunch
+   * gets a brand-new renderer, and the override does not survive it).
+   */
+  private static async applyViewportSize(page: Page): Promise<void> {
+    const cdpSession = await page.context().newCDPSession(page);
+    await cdpSession.send('Emulation.setDeviceMetricsOverride', {
+      width: VIEWPORT_WIDTH_PX,
+      height: VIEWPORT_HEIGHT_PX,
+      deviceScaleFactor: 1,
+      mobile: false,
+    });
   }
 
   /** Resolves the "DevTools listening on ws://…" endpoint from the app's stderr. */
