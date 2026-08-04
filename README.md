@@ -213,7 +213,15 @@ banned.
 **You may write and change files under `features/`** — those changes receive
 elevated human review. Never edit generated spec output (`.tmp/e2e-bdd/`,
 regenerated every run). Undefined steps must be implemented, not left pending:
-both runners hard-fail on them, and no tag may decide WHETHER a scenario runs.
+both runners hard-fail on them.
+
+**No tags under `features/`.** The tag vocabulary is closed and, in this repo,
+empty. Both runners give tags the power to make a scenario vanish silently —
+quickpickle's `@skip`/`@todo`/`@wip`/`@fails`/`@soft`, playwright-bdd's
+`@skip`/`@fixme`/`@only` — and neither can be configured out of it. So a tag on
+any line under `features/` fails `npm test`, via
+`tests/features/FeatureFileTagAudit.ts`. The check is static because a removed
+scenario produces no failure, only an absence, which no runner can report.
 
 **Migration policy.** Old-style unit and e2e tests keep running and adding to
 them is allowed. But when old-style tests that capture BEHAVIOUR are added or
@@ -223,8 +231,11 @@ is green — no dual maintenance.
 
 Known deviations from the strategy doc, tracked in `_tickets/`: domain source
 still imports Obsidian types directly (no adapter boundary, so no
-dependency-cruiser rule yet), and the e2e viewport-routing tags do not apply —
-the e2e tier drives one real Obsidian window, not two browser projects.
+dependency-cruiser rule yet); the e2e viewport-routing tags do not apply — the
+e2e tier drives one real Obsidian window, not two browser projects; and there
+is no scenario-count reconciler, so narrowing a runner config's feature glob
+would shrink the run silently. The tag audit pins the exact set of feature
+files, which catches a deleted or moved one but not a narrowed glob.
 
 ### e2e (real Obsidian)
 

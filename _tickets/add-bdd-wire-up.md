@@ -4,7 +4,7 @@ id: nid_imvuuievshgdtn84dcwsps1eq_e
 title: Add BDD wire up
 status: closed
 deps: []
-links: [nid_bpjraojplvcq3fvma8mezfswe_e, nid_p5rrzhcp0m9pg9gaq57mpcfn5_e]
+links: [nid_bpjraojplvcq3fvma8mezfswe_e, nid_p5rrzhcp0m9pg9gaq57mpcfn5_e, nid_frudoe3d1o5bg56ze33cbm28z_e]
 created_iso: '2026-08-04T19:03:50Z'
 status_updated_iso: 2026-08-04T19:15:45Z
 type: task
@@ -47,3 +47,18 @@ Strategy doc copied into the repo as `docs-internal/bdd-testing-strategy.md`.
 - `nid_bpjraojplvcq3fvma8mezfswe_e` — migrate pre-existing key behaviour tests into feature/scenario format (the follow-up this ticket asked for).
 - `nid_p5rrzhcp0m9pg9gaq57mpcfn5_e` — domain import boundary + dependency-cruiser.
 - `nid_e7phu93lqo8nmwh330i9miws1_e` — PRE-EXISTING red `npm run check` (`Array.prototype.at` vs `lib: ES2021`), confirmed on a clean worktree of HEAD; blocks `npm publish`.
+
+## Correction (2026-08-04, adversarial review)
+
+The "Enforcement done" claim above about TAGS was **wrong** — corrected in follow-up commit. Two probes:
+
+- Domain tier: `@skip` on a scenario still skipped it, run stayed GREEN. The emptied `todoTags`/`skipTags`/`failTags`/`softFailTags` had no effect at all: quickpickle merges options with lodash `defaultsDeep`, which merges arrays INDEX-WISE, so `[]` leaves every default tag in place.
+- E2E tier: `@skip` made `bddgen` emit ZERO specs, exit 0, print nothing. Nothing in the wire-up guarded playwright-bdd's tags — the "tag audit not implemented" deviation was justified by viewport routing, but the audit's other job (closed tag vocabulary) is orthogonal to it and was silently dropped.
+
+Fixed by `tests/features/FeatureFileTagAudit.ts` — a STATIC `npm test` check banning any tag under `features/`, covering both tiers; falsified against both. The ineffective quickpickle options block was removed rather than left lying, with the `defaultsDeep` trap recorded as a WHY-NOT in `vitest.config.ts`.
+
+The undefined-step claim DID hold: re-verified by probe in the domain tier (`missingSteps: 'fail-on-gen'` covers the e2e side).
+
+Also fixed: `setupFiles` named the one step file literally, so adding a feature meant editing `vitest.config.ts`. Now `tests/domain/steps/allSteps.ts` expands them via `import.meta.glob` (vitest does NOT glob `setupFiles` — verified).
+
+Still not implemented, now recorded in README: no scenario-count reconciler, so narrowing a runner config's feature glob shrinks the run silently.
