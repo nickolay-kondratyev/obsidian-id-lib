@@ -46,8 +46,11 @@
 		"build:js": "esbuild src/index.ts --bundle --format=esm --platform=neutral --target=es2021 --external:obsidian --outfile=dist/index.js",
 		"build": "npm run clean && npm run build:types && npm run build:js",
 		"check": "tsc -noEmit",
+		"check:e2e": "tsc -noEmit -p e2e/tsconfig.json",
 		"test": "vitest run",
 		"test:watch": "vitest",
+		"setup:obsidian": "bash scripts/setup-obsidian-bin.sh",
+		"test:e2e": "bash scripts/run-e2e.sh",
 		"prepack": "npm run build",
 		"prepublishOnly": "npm run check && npm test"
 	},
@@ -55,6 +58,8 @@
 		"obsidian": "*"
 	},
 	"devDependencies": {
+		"@playwright/test": "1.61.1",
+		"@types/node": "^26.1.2",
 		"esbuild": "0.25.5",
 		"obsidian": "latest",
 		"typescript": "^5.8.3",

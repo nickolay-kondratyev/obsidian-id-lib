@@ -166,6 +166,39 @@ npm run check   # tsc -noEmit (strict, whole src incl. tests)
 npm run build   # emit dist/: tsc .d.ts (tsconfig.build.json) + esbuild-bundled index.js
 ```
 
+### e2e (real Obsidian)
+
+`npm test` stays fast and hermetic; the e2e suite is a **release gate** that
+drives a REAL Obsidian (Electron) under Playwright, on a throwaway copy of
+`e2e/fixtures/vault`, with a test-only host plugin that wires the library
+exactly as a consumer does.
+
+```bash
+npm run test:e2e                      # Linux/Docker: zero setup (downloads a pinned Obsidian once)
+npm run test:e2e -- docId.e2e.ts      # extra args pass through to Playwright
+npm run check:e2e                     # type-check the e2e/ tree only
+```
+
+Env knobs:
+
+| Var | Purpose |
+| --- | --- |
+| `OBSIDIAN_PATH` | Path to an Obsidian binary. **Required on macOS/Windows** (no auto-download): `export OBSIDIAN_PATH='/Applications/Obsidian.app/Contents/MacOS/Obsidian'` |
+| `OBSIDIAN_VERSION` | Which release to auto-download (default `1.12.7`). Use it to run against a consumer's `minAppVersion` floor or a newer release. |
+| `OBSIDIAN_CACHE_DIR` | Where the downloaded binary is cached (default `~/.cache/obsidian-e2e`), shared across checkouts. |
+| `OBSIDIAN_E2E_EXTRA_ARGS` | Extra Chromium flags. Auto-defaults to `--ozone-platform=headless --disable-gpu` when no display is detected. |
+
+What belongs here: only what a fake vault **cannot** prove — Obsidian's own
+behaviour (canvas serialization, `Vault.process` bytes, `metadataCache`,
+restart round-trip). Everything else stays in the vitest suite; every case here
+costs an Electron boot.
+
+Specs can create notes in the running app (`harness.createFile`) and drive the
+UI with **real pointer clicks** — the harness forces a 1280×800 layout viewport
+via CDP, because headless Obsidian otherwise renders in a ~300×200 window where
+clicks silently miss while DOM assertions still pass.
+`e2e/harnessClickability.e2e.ts` guards exactly that.
+
 Publishing: see [`docs-internal/how-to-publish-to-npm.md`](docs-internal/how-to-publish-to-npm.md).
 `prepack` builds `dist/` and `prepublishOnly` runs `check` + tests, so
 `npm publish` always ships a fresh, type-checked, tested build.

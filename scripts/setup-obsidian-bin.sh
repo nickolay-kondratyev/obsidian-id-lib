@@ -1,0 +1,92 @@
+#!/usr/bin/env bash
+# Provision a REAL Obsidian binary for the e2e suite (see e2e/obsidianHarness.ts).
+#
+# WHY this exists: `npm run test:e2e` drives a real Obsidian (Electron), but the
+# binary is NOT an npm dependency. On Linux / Docker this downloads a PINNED
+# Obsidian release once, caches it, and prints the binary path on stdout so
+# `run-e2e.sh` can export OBSIDIAN_PATH. All progress goes to stderr so stdout
+# stays a single clean path line for `$(...)` capture.
+#
+# WHY the tarball (not the AppImage): it extracts to a plain directory with a
+# runnable `obsidian` binary — no FUSE and no `--appimage-extract`, both of which
+# CI/Docker containers lack (no fusermount).
+#
+# Pinned on purpose: a floating "latest" would let a new Obsidian release break
+# e2e with NO code change. The version is overridable because compatibility IS
+# this library's job — run the suite against the manifest floor a consumer
+# declares, or against a newer release, on demand:
+#   OBSIDIAN_VERSION=1.12.4 npm run test:e2e
+#
+# WHY-NOT integrity checksum: Obsidian publishes a hash only for the `.asar`
+# payload, not the platform tarball; `curl --fail` + `tar` validity is the 80/20
+# guard.
+#
+# Non-Linux: no auto-download (Obsidian ships .dmg/.exe, not a drop-in binary).
+# Set OBSIDIAN_PATH yourself — see obsidianHarness.resolveObsidianPath().
+set -euo pipefail
+
+OBSIDIAN_VERSION="${OBSIDIAN_VERSION:-1.12.7}"
+
+# Shared across checkouts; override with OBSIDIAN_CACHE_DIR. In Docker, mount
+# this path as a volume so the download survives container rebuilds.
+CACHE_DIR="${OBSIDIAN_CACHE_DIR:-${XDG_CACHE_HOME:-$HOME/.cache}/obsidian-e2e}"
+
+# All human-facing output → stderr; stdout is reserved for the final binary path.
+log() { echo "setup-obsidian-bin: $*" >&2; }
+
+if [[ "$(uname -s)" != "Linux" ]]; then
+	log "auto-download is Linux-only (got $(uname -s))."
+	log "Set OBSIDIAN_PATH to a local Obsidian binary and re-run. See README e2e section."
+	exit 1
+fi
+
+case "$(uname -m)" in
+	x86_64 | amd64) asset="obsidian-${OBSIDIAN_VERSION}.tar.gz" ;;
+	aarch64 | arm64) asset="obsidian-${OBSIDIAN_VERSION}-arm64.tar.gz" ;;
+	*)
+		log "unsupported arch: $(uname -m)"
+		exit 1
+		;;
+esac
+
+# The tarball's single top-level dir == asset name without `.tar.gz`.
+install_dir="${CACHE_DIR}/${asset%.tar.gz}"
+binary="${install_dir}/obsidian"
+
+if [[ -x "${binary}" ]]; then
+	log "using cached binary (Obsidian ${OBSIDIAN_VERSION})."
+	echo "${binary}"
+	exit 0
+fi
+
+url="https://github.com/obsidianmd/obsidian-releases/releases/download/v${OBSIDIAN_VERSION}/${asset}"
+mkdir -p "${CACHE_DIR}"
+
+# Download AND extract into a private staging dir, then move the finished tree
+# into the cache in one step. WHY: the cache is keyed on `-x <binary>`, so a run
+# interrupted mid-extract (Ctrl-C, full disk, a parallel CI job) would otherwise
+# leave a half-populated tree that every later run happily reuses as "cached" —
+# a poisoned cache that only a manual wipe clears.
+staging_dir="${CACHE_DIR}/.staging.$$"
+rm -rf "${staging_dir}"
+mkdir -p "${staging_dir}"
+trap 'rm -rf "${staging_dir}"' EXIT
+
+log "downloading Obsidian ${OBSIDIAN_VERSION}: ${url}"
+curl --fail --location --show-error --silent --output "${staging_dir}/${asset}" "${url}"
+log "extracting ${asset}"
+tar -xzf "${staging_dir}/${asset}" -C "${staging_dir}"
+rm -f "${staging_dir}/${asset}" # keep only the extracted tree (~200MB binary), not the archive
+
+if [[ ! -x "${staging_dir}/${asset%.tar.gz}/obsidian" ]]; then
+	log "expected binary missing after extract: ${staging_dir}/${asset%.tar.gz}/obsidian"
+	exit 1
+fi
+
+# `mv` onto an EXISTING dir would nest inside it instead of replacing it, so the
+# (broken-by-definition, since -x failed above) leftover goes first.
+rm -rf "${install_dir}"
+mv "${staging_dir}/${asset%.tar.gz}" "${install_dir}"
+
+log "ready."
+echo "${binary}"
