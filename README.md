@@ -161,10 +161,81 @@ plugin does.
 
 ```bash
 npm install
-npm test        # vitest (obsidian aliased to src/testSupport/obsidianMock.ts)
-npm run check   # tsc -noEmit (strict, whole src incl. tests)
-npm run build   # emit dist/: tsc .d.ts (tsconfig.build.json) + esbuild-bundled index.js
+npm test          # vitest: BOTH the unit and domain-BDD projects
+npm run test:domain  # just the domain BDD tier
+npm run check     # tsc -noEmit (strict, whole src + tests incl. test files)
+npm run build     # emit dist/: tsc .d.ts (tsconfig.build.json) + esbuild-bundled index.js
 ```
+
+### Test tiers (BDD)
+
+Three tiers. Full rationale in
+[`docs-internal/bdd-testing-strategy.md`](docs-internal/bdd-testing-strategy.md);
+what is in this repo:
+
+```
+features/domain/*.feature  -> quickpickle + vitest   (steps: tests/domain/steps/)
+features/e2e/*.feature     -> playwright-bdd         (steps: e2e/steps/)
+src/**/*.test.ts           -> plain vitest, no Gherkin — a PERMANENT tier
+e2e/*.e2e.ts               -> legacy Playwright specs, migrating
+```
+
+Scenarios are reviewed by a human: every change under `features/` gets
+elevated review. Everything below exists to make that boundary hold.
+
+**Placement rule 1 — BDD scenario vs unit test.** A behaviour gets a Gherkin
+scenario when a non-implementor would care to read it. User-facing behaviour
+gets scenarios; implementation detail gets unit tests. Scenarios are examples
+of behaviour, not exhaustive coverage — combinatorial edge cases, error paths,
+and boundary values go in plain unit tests against the domain functions the
+steps delegate to. Tiebreaker: if the test would change when you refactor
+without changing behaviour, it is a unit test. If you are adding a Scenario
+Outline Examples row that no user would recognise as a distinct behaviour,
+stop and write a unit test.
+
+**Placement rule 2 — domain vs e2e.** If the scenario can be stated without
+mentioning Obsidian's UI, it goes in `features/domain/`. If it is about the
+plugin loading, registering its entry points, or interacting with the real
+app, it goes in `features/e2e/`. Everything verifiable in domain is verified
+in domain; a behaviour gets an e2e scenario only when the journey is critical,
+and the e2e version is the thinnest possible restatement — never a copy of the
+domain scenario's assertions. Matching stems and `Feature:` titles across the
+two tiers (`features/*/doc-id.feature`).
+
+**Scenarios assert exactly what they say.** Step definitions stay thin —
+parse, delegate, assert — and never branch on behaviour. Then steps delegate
+to an exported domain function that RETURNS a value and assert on that return
+value in one visible line; the assertion never lives inside the delegated-to
+function. Per-scenario state uses the runner's mechanism (the quickpickle
+world / playwright-bdd fixtures); module-level mutable state in step files is
+banned.
+
+**You may write and change files under `features/`** — those changes receive
+elevated human review. Never edit generated spec output (`.tmp/e2e-bdd/`,
+regenerated every run). Undefined steps must be implemented, not left pending:
+both runners hard-fail on them.
+
+**No tags under `features/`.** The tag vocabulary is closed and, in this repo,
+empty. Both runners give tags the power to make a scenario vanish silently —
+quickpickle's `@skip`/`@todo`/`@wip`/`@fails`/`@soft`, playwright-bdd's
+`@skip`/`@fixme`/`@only` — and neither can be configured out of it. So a tag on
+any line under `features/` fails `npm test`, via
+`tests/features/FeatureFileTagAudit.ts`. The check is static because a removed
+scenario produces no failure, only an absence, which no runner can report.
+
+**Migration policy.** Old-style unit and e2e tests keep running and adding to
+them is allowed. But when old-style tests that capture BEHAVIOUR are added or
+modified, either migrate that behaviour into the right BDD tier inline (when
+small) or file a migration ticket. Delete the legacy test once its replacement
+is green — no dual maintenance.
+
+Known deviations from the strategy doc, tracked in `_tickets/`: domain source
+still imports Obsidian types directly (no adapter boundary, so no
+dependency-cruiser rule yet); the e2e viewport-routing tags do not apply — the
+e2e tier drives one real Obsidian window, not two browser projects; and there
+is no scenario-count reconciler, so narrowing a runner config's feature glob
+would shrink the run silently. The tag audit pins the exact set of feature
+files, which catches a deleted or moved one but not a narrowed glob.
 
 ### e2e (real Obsidian)
 
@@ -176,8 +247,14 @@ exactly as a consumer does.
 ```bash
 npm run test:e2e                      # Linux/Docker: zero setup (downloads a pinned Obsidian once)
 npm run test:e2e -- docId.e2e.ts      # extra args pass through to Playwright
+npm run test:e2e -- --project bdd     # just the e2e BDD tier
 npm run check:e2e                     # type-check the e2e/ tree only
 ```
+
+It runs two Playwright projects: `bdd` (the `features/e2e/*.feature` tier,
+compiled by playwright-bdd into `.tmp/e2e-bdd/` on every run) and `legacy`
+(the pre-BDD `*.e2e.ts` specs). The BDD tier boots one real Obsidian per
+scenario; the legacy specs share one per file.
 
 Env knobs:
 
