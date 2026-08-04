@@ -1,0 +1,9 @@
+{
+	"extends": "../tsconfig.json",
+	"compilerOptions": {
+		// e2e runs under node (Playwright transpiles). `page.evaluate` callbacks
+		// execute in the renderer, whose DOM lib comes from the root config.
+		"types": ["node"]
+	},
+	"include": ["./**/*.ts"]
+}

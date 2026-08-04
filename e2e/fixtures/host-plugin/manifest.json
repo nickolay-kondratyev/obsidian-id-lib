@@ -1,0 +1,9 @@
+{
+	"id": "obsidian-id-lib-e2e-host",
+	"name": "obsidian-id-lib e2e host",
+	"version": "0.0.0",
+	"minAppVersion": "1.12.4",
+	"description": "Test-only host that exposes obsidian-id-lib to the e2e harness.",
+	"author": "e2e",
+	"isDesktopOnly": true
+}
