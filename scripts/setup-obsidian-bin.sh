@@ -50,7 +50,8 @@ case "$(uname -m)" in
 esac
 
 # The tarball's single top-level dir == asset name without `.tar.gz`.
-binary="${CACHE_DIR}/${asset%.tar.gz}/obsidian"
+install_dir="${CACHE_DIR}/${asset%.tar.gz}"
+binary="${install_dir}/obsidian"
 
 if [[ -x "${binary}" ]]; then
 	log "using cached binary (Obsidian ${OBSIDIAN_VERSION})."
@@ -59,19 +60,33 @@ if [[ -x "${binary}" ]]; then
 fi
 
 url="https://github.com/obsidianmd/obsidian-releases/releases/download/v${OBSIDIAN_VERSION}/${asset}"
-tarball="${CACHE_DIR}/${asset}"
 mkdir -p "${CACHE_DIR}"
 
-log "downloading Obsidian ${OBSIDIAN_VERSION}: ${url}"
-curl --fail --location --show-error --silent --output "${tarball}" "${url}"
-log "extracting ${asset}"
-tar -xzf "${tarball}" -C "${CACHE_DIR}"
-rm -f "${tarball}" # keep only the extracted tree (~200MB binary), not the archive
+# Download AND extract into a private staging dir, then move the finished tree
+# into the cache in one step. WHY: the cache is keyed on `-x <binary>`, so a run
+# interrupted mid-extract (Ctrl-C, full disk, a parallel CI job) would otherwise
+# leave a half-populated tree that every later run happily reuses as "cached" —
+# a poisoned cache that only a manual wipe clears.
+staging_dir="${CACHE_DIR}/.staging.$$"
+rm -rf "${staging_dir}"
+mkdir -p "${staging_dir}"
+trap 'rm -rf "${staging_dir}"' EXIT
 
-if [[ ! -x "${binary}" ]]; then
-	log "expected binary missing after extract: ${binary}"
+log "downloading Obsidian ${OBSIDIAN_VERSION}: ${url}"
+curl --fail --location --show-error --silent --output "${staging_dir}/${asset}" "${url}"
+log "extracting ${asset}"
+tar -xzf "${staging_dir}/${asset}" -C "${staging_dir}"
+rm -f "${staging_dir}/${asset}" # keep only the extracted tree (~200MB binary), not the archive
+
+if [[ ! -x "${staging_dir}/${asset%.tar.gz}/obsidian" ]]; then
+	log "expected binary missing after extract: ${staging_dir}/${asset%.tar.gz}/obsidian"
 	exit 1
 fi
+
+# `mv` onto an EXISTING dir would nest inside it instead of replacing it, so the
+# (broken-by-definition, since -x failed above) leftover goes first.
+rm -rf "${install_dir}"
+mv "${staging_dir}/${asset%.tar.gz}" "${install_dir}"
 
 log "ready."
 echo "${binary}"

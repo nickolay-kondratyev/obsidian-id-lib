@@ -22,7 +22,8 @@ export default defineConfig({
   timeout: TEST_TIMEOUT_MS,
   expect: { timeout: EXPECT_TIMEOUT_MS },
   // One Obsidian instance, serial tests — parallel workers would fight over the
-  // singleton app window and the vault copy.
+  // singleton app window and the throwaway vault/sandbox dirs, which are
+  // process-wide and wiped on launch (see obsidianHarness.ts).
   workers: 1,
   fullyParallel: false,
   retries: 0,

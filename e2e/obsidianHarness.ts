@@ -4,6 +4,7 @@ import * as path from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { chromium } from '@playwright/test';
 import type { Browser, Page } from '@playwright/test';
+import type { DocIdService } from '../src/index';
 
 /**
  * Launches a REAL Obsidian (Electron) on a throwaway copy of the fixture vault,
@@ -23,6 +24,21 @@ import type { Browser, Page } from '@playwright/test';
 /** Must match e2e/fixtures/host-plugin/manifest.json. */
 const HOST_PLUGIN_ID = 'obsidian-id-lib-e2e-host';
 
+/**
+ * The library lookups the harness may drive from a spec. Derived from the real
+ * interface via `Pick`, so renaming a method in `src/` breaks `check:e2e` here
+ * instead of at runtime inside `page.evaluate`, where the failure would surface
+ * as an opaque "is not a function" from the renderer.
+ */
+type DocIdLookup = keyof Pick<DocIdService, 'ensureDocId' | 'getDocId'>;
+
+/**
+ * These working dirs are process-wide, and `launch()` WIPES them. That is only
+ * safe because the suite runs single-worker (`workers: 1` in playwright.config.ts,
+ * where the same coupling is stated): two concurrent harnesses would delete each
+ * other's vault mid-test. Raising the worker count therefore requires making
+ * these per-worker first.
+ */
 const REPO_ROOT = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '..');
 const E2E_TMP_DIR = path.join(REPO_ROOT, '.tmp', 'e2e');
 const VAULT_COPY_DIR = path.join(E2E_TMP_DIR, 'vault');
@@ -90,31 +106,31 @@ export class ObsidianHarness {
 
   /** Calls the library's write path against a real vault file. */
   async ensureDocId(vaultPath: string): Promise<string | null> {
-    return this.page.evaluate(
-      ({ pluginId, targetPath }) => {
-        const app = (window as unknown as { app: any }).app;
-        const file = app.vault.getAbstractFileByPath(targetPath);
-        if (!file) {
-          throw new Error(`e2e: vault file not found: path=[${targetPath}]`);
-        }
-        return app.plugins.plugins[pluginId].docIdService.ensureDocId(file);
-      },
-      { pluginId: HOST_PLUGIN_ID, targetPath: vaultPath },
-    );
+    return this.callDocIdService('ensureDocId', vaultPath);
   }
 
   /** Read-only lookup — must NEVER mint an id. */
   async getDocId(vaultPath: string): Promise<string | null> {
+    return this.callDocIdService('getDocId', vaultPath);
+  }
+
+  /**
+   * THE single crossing into the renderer for library calls: resolve the vault
+   * path to the app's own `TFile` and hand it to the host plugin's service.
+   * Every lookup shares it so the path-resolution contract (and its error) is
+   * stated once.
+   */
+  private callDocIdService(lookup: DocIdLookup, vaultPath: string): Promise<string | null> {
     return this.page.evaluate(
-      ({ pluginId, targetPath }) => {
+      ({ pluginId, method, targetPath }) => {
         const app = (window as unknown as { app: any }).app;
         const file = app.vault.getAbstractFileByPath(targetPath);
         if (!file) {
           throw new Error(`e2e: vault file not found: path=[${targetPath}]`);
         }
-        return app.plugins.plugins[pluginId].docIdService.getDocId(file);
+        return app.plugins.plugins[pluginId].docIdService[method](file);
       },
-      { pluginId: HOST_PLUGIN_ID, targetPath: vaultPath },
+      { pluginId: HOST_PLUGIN_ID, method: lookup, targetPath: vaultPath },
     );
   }
 
@@ -231,12 +247,25 @@ export class ObsidianHarness {
     if (proc.exitCode !== null || proc.signalCode !== null) {
       return Promise.resolve();
     }
+    // No pid == the spawn itself failed (e.g. a non-executable OBSIDIAN_PATH).
+    // Node only guarantees 'error' there — 'exit' "may or may not be emitted" —
+    // so there is nothing safe to wait for. Waiting anyway risks hanging teardown
+    // until the Playwright timeout, which would bury the real launch error.
+    if (proc.pid === undefined) {
+      return Promise.resolve();
+    }
     return new Promise<void>((resolve) => {
       const forceKillTimer = setTimeout(() => proc.kill('SIGKILL'), FORCE_KILL_AFTER_MS);
-      proc.once('exit', () => {
+      // 'error' as well as 'exit', for the same reason: a kill that fails (ESRCH
+      // on an already-reaped child) surfaces as 'error' with no 'exit' to follow.
+      const settle = (): void => {
         clearTimeout(forceKillTimer);
+        proc.off('exit', settle);
+        proc.off('error', settle);
         resolve();
-      });
+      };
+      proc.once('exit', settle);
+      proc.once('error', settle);
       proc.kill();
     });
   }

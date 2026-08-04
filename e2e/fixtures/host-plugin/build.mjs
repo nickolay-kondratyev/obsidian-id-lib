@@ -1,10 +1,15 @@
 // Bundles the test-only host plugin (which wraps the library source) into a
 // loadable Obsidian plugin under .tmp/. Run by scripts/run-e2e.sh; the harness
 // copies the output into the throwaway vault.
-import { copyFileSync, mkdirSync } from 'node:fs';
+import { copyFileSync, mkdirSync, rmSync } from 'node:fs';
 import * as esbuild from 'esbuild';
 
 const OUT_DIR = '.tmp/host-plugin';
+
+// Rebuild from empty: the whole dir is copied verbatim into the throwaway vault,
+// so anything left behind by an older build would be loaded as if it were current.
+rmSync(OUT_DIR, { recursive: true, force: true });
+mkdirSync(OUT_DIR, { recursive: true });
 
 await esbuild.build({
   entryPoints: ['e2e/fixtures/host-plugin/main.ts'],
@@ -18,6 +23,5 @@ await esbuild.build({
   outfile: `${OUT_DIR}/main.js`,
 });
 
-mkdirSync(OUT_DIR, { recursive: true });
 // The manifest must sit beside main.js for Obsidian to load the plugin.
 copyFileSync('e2e/fixtures/host-plugin/manifest.json', `${OUT_DIR}/manifest.json`);
