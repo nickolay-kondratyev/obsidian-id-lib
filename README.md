@@ -172,8 +172,13 @@ npm install
 npm test          # vitest: BOTH the unit and domain-BDD projects
 npm run test:domain  # just the domain BDD tier
 npm run check     # tsc -noEmit (strict, whole src + tests incl. test files)
+npm run test:all  # every gate, in release order: check + check:e2e + test + test:e2e
 npm run build     # emit dist/: tsc .d.ts (tsconfig.build.json) + esbuild-bundled index.js
 ```
+
+`test:all` is the single definition of "everything green" — the release script
+runs exactly it, so there is no separate list of tiers to keep in sync. Adding a
+tier means adding it here.
 
 ### Test tiers (BDD)
 
@@ -284,9 +289,19 @@ via CDP, because headless Obsidian otherwise renders in a ~300×200 window where
 clicks silently miss while DOM assertions still pass.
 `e2e/harnessClickability.e2e.ts` guards exactly that.
 
-Publishing: see [`docs-internal/how-to-publish-to-npm.md`](docs-internal/how-to-publish-to-npm.md).
-`prepack` builds `dist/` and `prepublishOnly` runs `check` + tests, so
-`npm publish` always ships a fresh, type-checked, tested build.
+## Releasing
+
+```bash
+export NPM_PUBLISH_TOKEN=...                 # npm automation token; .npmrc reads it
+./release_to_npm_with_version_bump.sh        # patch bump; `minor` / `major` / `1.2.3` also accepted
+```
+
+It runs `npm run test:all` first, then bumps the version, commits, tags, pushes
+the default branch, and publishes. Nothing is mutated until the suite is green.
+Full runbook (first-time setup, verification, rollback):
+[`docs-internal/how-to-publish-to-npm.md`](docs-internal/how-to-publish-to-npm.md).
+`prepack` builds `dist/` and `prepublishOnly` runs `check` + tests, so even a
+bare `npm publish` ships a fresh, type-checked, tested build.
 
 Follow-up: add ESLint to this repo (the code arrived lint-clean from the
 visit-history plugin's obsidianmd ESLint setup).
