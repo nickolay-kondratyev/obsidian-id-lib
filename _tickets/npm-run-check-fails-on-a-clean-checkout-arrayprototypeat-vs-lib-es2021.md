@@ -1,11 +1,12 @@
 ---
+closed_iso: 2026-08-05T01:04:21Z
 id: nid_avpmbw0w9cskk57061lcfaw3g_e
 title: npm run check fails on a clean checkout (Array.prototype.at vs lib ES2021)
-status: in_progress
+status: closed
 deps: []
 links: []
 created_iso: '2026-08-04T18:24:11Z'
-status_updated_iso: '2026-08-05T01:00:49Z'
+status_updated_iso: 2026-08-05T01:04:21Z
 type: bug
 priority: 1
 assignee: nickolaykondratyev
@@ -70,3 +71,46 @@ One thing I could not verify: submodules/obsidian-id-lib/ is empty in this conta
 
 Sources: Obsidian Help — Mobile app (https://obsidian.md/help/mobile), Obsidian changelog (https://obsidian.md/changelog/)
 ```
+
+--------------------------------------------------------------------------------
+
+## RESOLUTION (2026-08-04)
+
+Took **fix #1, `lib` only** — both consumer recommendations agreed.
+
+Changes:
+- `tsconfig.json`: `lib` `["ES2021","DOM"]` → `["ES2022","DOM"]`, with a WHY
+  comment explaining the deliberate `lib` (ES2022) / `target` (ES2021) split.
+  `target` left at ES2021 so tsc stays in sync with the pinned
+  `esbuild --target=es2021` in `build:js` — dist/ emit is unchanged.
+- `tsconfig.build.json` needed **no** edit: it `extends: "./tsconfig.json"` and
+  does not override `lib`, so the .d.ts emit resolves against the same ES2022
+  lib. (Ticket's "check before closing" note — checked.) Same for
+  `e2e/tsconfig.json`, which also extends the root config.
+- `README.md` → "Consuming the library": added the belt-and-braces runtime-floor
+  note — shipped dist/ is ES2021 syntax for mobile-webview safety; ES2022
+  built-ins are type-check-only and have an iOS 15.4 floor.
+
+Verification (repro first, then fix):
+- Before: `npm run check` exit 2 with the TS2550 above.
+- After: `npm run check` exit 0, `npm run check:e2e` exit 0, `npm run build`
+  exit 0, `npm test` 8 files / 76 tests passed.
+
+`npm publish` is unblocked (`prepublishOnly` = `npm run check && npm test`).
+
+### Follow-up on the resolution (review pass, 2026-08-04)
+
+The bullet above was wrong that `tsconfig.build.json` needed no edit. Widening
+`lib` at the root removed the *only* compile-time guard on the ES2021 runtime
+floor: `Object.hasOwn` added to a shipped file (`src/DocIdGenerator.ts`) built
+clean and landed in `dist/`, because esbuild's `--target` down-levels syntax
+but never built-ins. The README's "keep them out of shipped code paths" was
+honor-system.
+
+`tsconfig.build.json` now pins `"lib": ["ES2021", "DOM"]`. Its `include` is
+exactly the published graph (`src/index.ts` reachable, minus tests and
+testSupport), so the guard lands precisely where the floor applies while the
+test tiers keep ES2022. Verified with the same probe: `build:types` exits 2
+with TS2550; with the probe removed, `check` / `check:e2e` / `build` exit 0 and
+`npm test` passes 8 files / 76 tests. README updated to describe the enforced
+rule.

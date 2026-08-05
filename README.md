@@ -157,6 +157,14 @@ npm install obsidian-id-lib
 have `obsidian` and mark it external in their plugin build, as every Obsidian
 plugin does.
 
+**Runtime floor:** shipped `dist/` is **ES2021** — syntax via esbuild
+`--target=es2021`, built-ins via `lib: ES2021` in `tsconfig.build.json`, whose
+include is exactly the published graph. ES2022 built-ins (`Array.prototype.at`,
+`Object.hasOwn`, …) have an iOS 15.4 floor and esbuild does not down-level
+them, so one reaching `dist/` fails `npm run build` rather than throwing on an
+iOS 15.0–15.3 webview. The base `tsconfig.json` keeps `lib: ES2022` for the
+test tiers, which run on desktop Node/Electron only.
+
 ## Dev
 
 ```bash
