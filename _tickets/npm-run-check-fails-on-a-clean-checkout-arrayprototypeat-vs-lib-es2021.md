@@ -9,7 +9,7 @@ status_updated_iso: 2026-08-04T18:24:11Z
 type: bug
 priority: 1
 assignee: nickolaykondratyev
-tags: [decide]
+tags: []
 ---
 
 `npm run check` (tsc -noEmit, root tsconfig.json) FAILS on a clean checkout:
