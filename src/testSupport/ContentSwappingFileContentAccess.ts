@@ -1,4 +1,4 @@
-import { TFile } from 'obsidian';
+import { DocFile } from '../DocFile';
 import { FakeFileContentAccess } from './FakeFileContentAccess';
 
 /**
@@ -11,7 +11,7 @@ export class ContentSwappingFileContentAccess extends FakeFileContentAccess {
     super();
   }
 
-  override async process(file: TFile, transform: (content: string) => string): Promise<void> {
+  override async process(file: DocFile, transform: (content: string) => string): Promise<void> {
     this.seedNote(file.path, this.concurrentContent);
     return super.process(file, transform);
   }

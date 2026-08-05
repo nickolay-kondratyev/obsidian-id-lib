@@ -1,4 +1,4 @@
-import { TFile } from 'obsidian';
+import { DocFile } from './DocFile';
 
 /**
  * Reads/creates the persistent doc id inside one specific file format.
@@ -12,14 +12,14 @@ export interface DocIdStore {
    * Returns null when the file content cannot be handled (e.g. malformed
    * JSON) — never throws for content problems.
    */
-  ensureId(file: TFile): Promise<string | null>;
+  ensureId(file: DocFile): Promise<string | null>;
 
   /**
    * READ-ONLY id lookup: returns the existing usable id, or null when the
    * id is absent, unusable (occupied slot), or the content cannot be handled.
    * NEVER writes — safe for bulk read paths (e.g. heatmap aggregation).
    */
-  getId(file: TFile): Promise<string | null>;
+  getId(file: DocFile): Promise<string | null>;
 }
 
 /**

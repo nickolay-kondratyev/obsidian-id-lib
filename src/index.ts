@@ -2,6 +2,8 @@
 // `export type` used for type-only exports — consumers compile with
 // isolatedModules, where re-exporting a type as a value is an error.
 
+export type { DocFile } from './DocFile';
+
 export type { DocIdService } from './DocIdService';
 export { DocIdServiceDefault } from './DocIdService';
 
@@ -20,9 +22,10 @@ export { FrontmatterDocIdStore } from './FrontmatterDocIdStore';
 export { CanvasDocIdStore } from './CanvasDocIdStore';
 
 export type { FileContentAccess } from './FileContentAccess';
-export { VaultFileContentAccess } from './FileContentAccess';
 
 export type { PathLock } from './CrossPluginPathLock';
 export { CrossPluginPathLock, ID_LOCK_REGISTRY_KEY } from './CrossPluginPathLock';
 
-export { DocIdServices } from './DocIdServices';
+// Obsidian-backed adapters — the library's only host-API bridgehead.
+export { VaultFileContentAccess } from './obsidian/VaultFileContentAccess';
+export { DocIdServices } from './obsidian/DocIdServices';

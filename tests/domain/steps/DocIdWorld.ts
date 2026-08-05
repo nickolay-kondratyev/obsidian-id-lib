@@ -1,5 +1,5 @@
 import { QuickPickleWorld } from 'quickpickle';
-import type { TFile } from 'obsidian';
+import type { DocFile } from '../../../src/DocFile';
 import { CanvasDocIdStore } from '../../../src/CanvasDocIdStore';
 import { CrossPluginPathLock } from '../../../src/CrossPluginPathLock';
 import { DocIdGeneratorDefault } from '../../../src/DocIdGenerator';
@@ -26,13 +26,13 @@ export class DocIdWorld extends QuickPickleWorld {
    * then is a broken scenario, so it fails loudly instead of handing out
    * `undefined` for a step to trip over later.
    */
-  private noteUnderTest: TFile | undefined;
+  private noteUnderTest: DocFile | undefined;
 
-  set note(file: TFile) {
+  set note(file: DocFile) {
     this.noteUnderTest = file;
   }
 
-  get note(): TFile {
+  get note(): DocFile {
     if (this.noteUnderTest === undefined) {
       throw new Error('No note in this scenario — a Given step must seed one first');
     }

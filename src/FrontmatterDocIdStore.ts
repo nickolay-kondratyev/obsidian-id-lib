@@ -1,4 +1,4 @@
-import { TFile } from 'obsidian';
+import { DocFile } from './DocFile';
 import { DocIdStore } from './DocIdStore';
 import { DocIdGenerator } from './DocIdGenerator';
 import { FileContentAccess } from './FileContentAccess';
@@ -41,7 +41,7 @@ export class FrontmatterDocIdStore implements DocIdStore {
   ) {
   }
 
-  async ensureId(file: TFile): Promise<string | null> {
+  async ensureId(file: DocFile): Promise<string | null> {
     // Fast path: an existing id means NO write at all (no mtime churn).
     const existingId = this.readIdFromRawContent(await this.fileContentAccess.cachedRead(file));
     if (existingId !== null) {
@@ -58,7 +58,7 @@ export class FrontmatterDocIdStore implements DocIdStore {
     return resultId;
   }
 
-  async getId(file: TFile): Promise<string | null> {
+  async getId(file: DocFile): Promise<string | null> {
     return this.readIdFromRawContent(await this.fileContentAccess.cachedRead(file));
   }
 

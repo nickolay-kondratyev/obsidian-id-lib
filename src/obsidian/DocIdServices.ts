@@ -1,10 +1,12 @@
-import { Vault } from 'obsidian';
-import { DocIdService, DocIdServiceDefault } from './DocIdService';
-import { DocIdGeneratorDefault } from './DocIdGenerator';
-import { FrontmatterDocIdStore } from './FrontmatterDocIdStore';
-import { CanvasDocIdStore } from './CanvasDocIdStore';
-import { VaultFileContentAccess } from './FileContentAccess';
-import { CrossPluginPathLock } from './CrossPluginPathLock';
+// `import type` so this module erases to zero host imports at runtime — see the
+// same note in VaultFileContentAccess.ts.
+import type { Vault } from 'obsidian';
+import { DocIdService, DocIdServiceDefault } from '../DocIdService';
+import { DocIdGeneratorDefault } from '../DocIdGenerator';
+import { FrontmatterDocIdStore } from '../FrontmatterDocIdStore';
+import { CanvasDocIdStore } from '../CanvasDocIdStore';
+import { VaultFileContentAccess } from './VaultFileContentAccess';
+import { CrossPluginPathLock } from '../CrossPluginPathLock';
 
 /** Static factory for the default production wiring. */
 export class DocIdServices {

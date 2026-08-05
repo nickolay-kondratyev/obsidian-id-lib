@@ -1,4 +1,4 @@
-import { TFile } from 'obsidian';
+import { DocFile } from './DocFile';
 import { DocIdStore } from './DocIdStore';
 import { PathLock } from './CrossPluginPathLock';
 
@@ -14,19 +14,19 @@ export interface DocIdService {
    * Returns null for unsupported formats (e.g. raw .excalidraw JSON) or
    * unreadable content.
    */
-  ensureDocId(file: TFile): Promise<string | null>;
+  ensureDocId(file: DocFile): Promise<string | null>;
 
   /**
    * READ-ONLY doc id lookup: existing id or null. NEVER writes — safe for
    * bulk read paths (e.g. resolving visit history for every vault file).
    */
-  getDocId(file: TFile): Promise<string | null>;
+  getDocId(file: DocFile): Promise<string | null>;
 
   /**
    * True when the file's format can carry a doc id (md incl. .excalidraw.md,
    * canvas). False for formats ensureDocId would skip (e.g. raw .excalidraw).
    */
-  isEligible(file: TFile): boolean;
+  isEligible(file: DocFile): boolean;
 }
 
 export class DocIdServiceDefault implements DocIdService {
@@ -52,7 +52,7 @@ export class DocIdServiceDefault implements DocIdService {
     ]);
   }
 
-  async ensureDocId(file: TFile): Promise<string | null> {
+  async ensureDocId(file: DocFile): Promise<string | null> {
     const store = this.storeByExtension.get(file.extension);
     if (!store) {
       return null;
@@ -62,7 +62,7 @@ export class DocIdServiceDefault implements DocIdService {
     return this.pathLock.runExclusive(file.path, () => store.ensureId(file));
   }
 
-  async getDocId(file: TFile): Promise<string | null> {
+  async getDocId(file: DocFile): Promise<string | null> {
     const store = this.storeByExtension.get(file.extension);
     if (!store) {
       return null;
@@ -72,7 +72,7 @@ export class DocIdServiceDefault implements DocIdService {
     return store.getId(file);
   }
 
-  isEligible(file: TFile): boolean {
+  isEligible(file: DocFile): boolean {
     return this.storeByExtension.has(file.extension);
   }
 }
