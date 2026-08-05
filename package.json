@@ -47,7 +47,8 @@
 		"build": "npm run clean && npm run build:types && npm run build:js",
 		"check": "tsc -noEmit",
 		"check:e2e": "tsc -noEmit -p e2e/tsconfig.json",
-		"test": "vitest run",
+		"check:boundaries": "depcruise src tests --config .dependency-cruiser.cjs",
+		"test": "npm run check:boundaries && vitest run",
 		"test:domain": "vitest run --project domain",
 		"test:watch": "vitest",
 		"setup:obsidian": "bash scripts/setup-obsidian-bin.sh",
@@ -61,6 +62,7 @@
 	"devDependencies": {
 		"@playwright/test": "1.61.1",
 		"@types/node": "^26.1.2",
+		"dependency-cruiser": "^18.1.1",
 		"esbuild": "0.25.5",
 		"obsidian": "latest",
 		"playwright-bdd": "^9.2.0",

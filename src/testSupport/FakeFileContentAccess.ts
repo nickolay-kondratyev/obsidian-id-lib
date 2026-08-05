@@ -1,6 +1,6 @@
-import { TFile } from 'obsidian';
+import { DocFile } from '../DocFile';
 import { FileContentAccess } from '../FileContentAccess';
-import { makeTFile } from './fileFactory';
+import { makeDocFile } from './fileFactory';
 
 /**
  * In-memory FileContentAccess for unit tests. Mirrors the contract of
@@ -14,16 +14,16 @@ export class FakeFileContentAccess implements FileContentAccess {
   cachedReadCallCount = 0;
 
   /** Seeds a note's content directly. */
-  seedNote(path: string, content: string): TFile {
+  seedNote(path: string, content: string): DocFile {
     this.contentByPath.set(path, content);
-    return makeTFile({ path });
+    return makeDocFile(path);
   }
 
   getContent(path: string): string | undefined {
     return this.contentByPath.get(path);
   }
 
-  async cachedRead(file: TFile): Promise<string> {
+  async cachedRead(file: DocFile): Promise<string> {
     this.cachedReadCallCount++;
     const content = this.contentByPath.get(file.path);
     if (content === undefined) {
@@ -32,7 +32,7 @@ export class FakeFileContentAccess implements FileContentAccess {
     return content;
   }
 
-  async process(file: TFile, transform: (content: string) => string): Promise<void> {
+  async process(file: DocFile, transform: (content: string) => string): Promise<void> {
     this.processCallCount++;
     const content = this.contentByPath.get(file.path);
     if (content === undefined) {

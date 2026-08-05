@@ -1,5 +1,4 @@
 import { defineConfig } from 'vitest/config';
-import { fileURLToPath } from 'node:url';
 import { quickpickle } from 'quickpickle';
 
 /**
@@ -22,18 +21,15 @@ import { quickpickle } from 'quickpickle';
  * `tests/features/FeatureFileTagAudit.ts` in the `unit` project.
  */
 
-// 'obsidian' npm package is type-declarations-only (no runtime JS).
-// Tests run against a minimal stand-in instead. Repeated per project on
-// purpose: projects do NOT inherit `resolve` from the root config.
-const obsidianMockAlias = {
-  obsidian: fileURLToPath(new URL('./src/testSupport/obsidianMock.ts', import.meta.url)),
-};
+// WHY-NOT an 'obsidian' alias to a runtime stand-in: the vitest tiers no longer
+// import 'obsidian' at RUNTIME at all. The domain layer is forbidden to import
+// it (.dependency-cruiser.cjs), and the src/obsidian/ adapters use it only in
+// type position, where the import is erased. A stand-in would be dead weight.
 
 export default defineConfig({
   test: {
     projects: [
       {
-        resolve: { alias: obsidianMockAlias },
         test: {
           name: 'unit',
           include: ['src/**/*.test.ts', 'tests/**/*.test.ts'],
@@ -41,7 +37,6 @@ export default defineConfig({
       },
       {
         plugins: [quickpickle()],
-        resolve: { alias: obsidianMockAlias },
         test: {
           name: 'domain',
           include: ['features/domain/**/*.feature'],

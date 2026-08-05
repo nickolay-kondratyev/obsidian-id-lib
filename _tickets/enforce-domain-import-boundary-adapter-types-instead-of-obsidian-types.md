@@ -3,7 +3,7 @@ id: nid_p5rrzhcp0m9pg9gaq57mpcfn5_e
 title: Enforce domain import boundary (adapter types instead of Obsidian types)
 status: in_progress
 deps: []
-links: [nid_imvuuievshgdtn84dcwsps1eq_e, nid_bpjraojplvcq3fvma8mezfswe_e]
+links: [nid_imvuuievshgdtn84dcwsps1eq_e, nid_bpjraojplvcq3fvma8mezfswe_e, nid_zpzbyg7nxdjjbw5k5ytjixatr_e]
 created_iso: '2026-08-04T19:14:23Z'
 status_updated_iso: '2026-08-05T02:03:21Z'
 type: task

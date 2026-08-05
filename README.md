@@ -69,6 +69,13 @@ API surface (`DocIdService`):
   (`md`, `canvas`; raw `.excalidraw` is deliberately unsupported — pure JSON
   with no agreed id location).
 
+Every `file` above is a **`DocFile`** — the library's own two-field view of a
+vault file (`{ path, extension }`), not Obsidian's `TFile`. `TFile` satisfies
+it structurally, so you keep passing `app.vault`'s own files with no cast and
+no conversion; the domain layer just never names a host type (see the domain
+import boundary under [Dev](#test-tiers-bdd)). Upgrading from a `TFile`-typed
+release: [`docs/migrating-to-docfile.md`](docs/migrating-to-docfile.md).
+
 ## Id format contract
 
 <!-- ap_iZAE3fAcs5zXIWrTiIdx3_E -->
@@ -172,6 +179,7 @@ npm install
 npm test          # vitest: BOTH the unit and domain-BDD projects
 npm run test:domain  # just the domain BDD tier
 npm run check     # tsc -noEmit (strict, whole src + tests incl. test files)
+npm run check:boundaries  # dependency-cruiser: no 'obsidian' in domain source
 npm run build     # emit dist/: tsc .d.ts (tsconfig.build.json) + esbuild-bundled index.js
 ```
 
@@ -237,12 +245,20 @@ modified, either migrate that behaviour into the right BDD tier inline (when
 small) or file a migration ticket. Delete the legacy test once its replacement
 is green — no dual maintenance.
 
-Known deviations from the strategy doc, tracked in `_tickets/`: domain source
-still imports Obsidian types directly (no adapter boundary, so no
-dependency-cruiser rule yet); the e2e viewport-routing tags do not apply — the
-e2e tier drives one real Obsidian window, not two browser projects; and there
-is no scenario-count reconciler, so narrowing a runner config's feature glob
-would shrink the run silently. The tag audit pins the exact set of feature
+**Domain import boundary.** Domain source (`src/`, except `src/obsidian/`) and
+the domain step definitions must never import `obsidian` — **type-only imports
+included**, since a host type in a domain signature forces every fake to
+satisfy a wide host class. The domain speaks its own `DocFile`
+(`src/DocFile.ts`); `src/obsidian/` is the single sanctioned host-API
+bridgehead where the adapters translate. Enforced by dependency-cruiser
+(`.dependency-cruiser.cjs`, run as `npm run check:boundaries` inside
+`npm test`) with `tsPreCompilationDeps: true` — without that flag the rule
+would silently miss the `import type`s it mainly exists to catch.
+
+Known deviations from the strategy doc, tracked in `_tickets/`: the e2e
+viewport-routing tags do not apply — the e2e tier drives one real Obsidian
+window, not two browser projects; and there is no scenario-count reconciler,
+so narrowing a runner config's feature glob would shrink the run silently. The tag audit pins the exact set of feature
 files, which catches a deleted or moved one but not a narrowed glob.
 
 ### e2e (real Obsidian)

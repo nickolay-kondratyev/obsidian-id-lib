@@ -1,4 +1,4 @@
-import { TFile } from 'obsidian';
+import { DocFile } from './DocFile';
 import { DocIdStore, DocIdValues, ExistingIdState } from './DocIdStore';
 import { DocIdGenerator } from './DocIdGenerator';
 import { FileContentAccess } from './FileContentAccess';
@@ -22,7 +22,7 @@ export class CanvasDocIdStore implements DocIdStore {
   ) {
   }
 
-  async ensureId(file: TFile): Promise<string | null> {
+  async ensureId(file: DocFile): Promise<string | null> {
     const canvas = this.parseCanvas(await this.fileContentAccess.cachedRead(file), file.path);
     if (canvas === null) {
       return null;
@@ -47,7 +47,7 @@ export class CanvasDocIdStore implements DocIdStore {
     return newId;
   }
 
-  async getId(file: TFile): Promise<string | null> {
+  async getId(file: DocFile): Promise<string | null> {
     const canvas = this.parseCanvas(await this.fileContentAccess.cachedRead(file), file.path);
     if (canvas === null) {
       return null;
