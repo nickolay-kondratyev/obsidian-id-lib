@@ -1,17 +1,17 @@
 ---
 id: nid_avpmbw0w9cskk57061lcfaw3g_e
-title: "npm run check fails on a clean checkout (Array.prototype.at vs lib ES2021)"
-status: open
+title: npm run check fails on a clean checkout (Array.prototype.at vs lib ES2021)
+status: in_progress
 deps: []
 links: []
-created_iso: 2026-08-04T18:24:11Z
-status_updated_iso: 2026-08-04T18:24:11Z
+created_iso: '2026-08-04T18:24:11Z'
+status_updated_iso: '2026-08-05T01:00:49Z'
 type: bug
 priority: 1
 assignee: nickolaykondratyev
 tags: []
+pwd: /home/nickolaykondratyev/git_repos/nickolay-kondratyev_obsidian-id-lib
 ---
-
 `npm run check` (tsc -noEmit, root tsconfig.json) FAILS on a clean checkout:
 
 ```
