@@ -1,16 +1,16 @@
 ---
 id: nid_59oohp2285wtsjln5c7rvc705_e
-title: "add npm release script"
-status: open
+title: add npm release script
+status: in_progress
 deps: []
 links: []
-created_iso: 2026-08-04T17:58:30Z
-status_updated_iso: 2026-08-04T17:58:30Z
+created_iso: '2026-08-04T17:58:30Z'
+status_updated_iso: '2026-08-05T02:27:43Z'
 type: task
 priority: 3
 assignee: nickolaykondratyev
+pwd: /home/nickolaykondratyev/git_repos/nickolay-kondratyev_obsidian-id-lib-mirror-1
 ---
-
 This package is published to NPM to https://www.npmjs.com/package/obsidian-id-lib
 
 Let's add a script that will allow us to publish to NPM using ENV variable `NPM_PUBLISH_TOKEN` as publish token.
