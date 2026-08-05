@@ -12,7 +12,11 @@
 		"forceConsistentCasingInFileNames": true,
 		"allowSyntheticDefaultImports": true,
 		"noEmit": true,
-		"lib": ["ES2021", "DOM"]
+		// lib is ES2022 while target stays ES2021: we type-check against the
+		// ES2022 built-ins Obsidian's Electron/webview runtimes actually have
+		// (Array.prototype.at et al.), but emit ES2021 syntax to match the
+		// esbuild --target=es2021 used for dist/ (see build:js).
+		"lib": ["ES2022", "DOM"]
 	},
 	// tests/: the domain BDD tier's step definitions, type-checked with src.
 	"include": ["src/**/*.ts", "tests/**/*.ts"]

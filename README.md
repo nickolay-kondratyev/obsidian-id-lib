@@ -157,6 +157,12 @@ npm install obsidian-id-lib
 have `obsidian` and mark it external in their plugin build, as every Obsidian
 plugin does.
 
+**Runtime floor:** shipped `dist/` is emitted as **ES2021** syntax (esbuild
+`--target=es2021`) for mobile-webview safety. Type-checking uses the **ES2022**
+`lib` so ES2022 built-ins (`Array.prototype.at`, `Object.hasOwn`, …) are
+available — those have an iOS 15.4 floor, so keep them out of shipped code
+paths if you care about iOS 15.0–15.3.
+
 ## Dev
 
 ```bash
