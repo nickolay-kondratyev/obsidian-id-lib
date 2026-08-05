@@ -6,6 +6,13 @@
 	// files and testSupport/ never leak into dist/.
 	"extends": "./tsconfig.json",
 	"compilerOptions": {
+		// Pin lib back to ES2021 for the published graph only. The base config
+		// widens lib to ES2022 so test-tier code may use ES2022 built-ins, but
+		// esbuild does NOT down-level built-ins (only syntax) — an ES2022
+		// built-in reaching dist/ would throw on iOS 15.0-15.3 webviews. This
+		// makes that a compile error in `build:types` (and thus in prepack)
+		// instead of an honor-system README rule.
+		"lib": ["ES2021", "DOM"],
 		"noEmit": false,
 		"declaration": true,
 		"emitDeclarationOnly": true,

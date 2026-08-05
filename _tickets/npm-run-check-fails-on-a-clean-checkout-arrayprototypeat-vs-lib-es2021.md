@@ -97,3 +97,20 @@ Verification (repro first, then fix):
   exit 0, `npm test` 8 files / 76 tests passed.
 
 `npm publish` is unblocked (`prepublishOnly` = `npm run check && npm test`).
+
+### Follow-up on the resolution (review pass, 2026-08-04)
+
+The bullet above was wrong that `tsconfig.build.json` needed no edit. Widening
+`lib` at the root removed the *only* compile-time guard on the ES2021 runtime
+floor: `Object.hasOwn` added to a shipped file (`src/DocIdGenerator.ts`) built
+clean and landed in `dist/`, because esbuild's `--target` down-levels syntax
+but never built-ins. The README's "keep them out of shipped code paths" was
+honor-system.
+
+`tsconfig.build.json` now pins `"lib": ["ES2021", "DOM"]`. Its `include` is
+exactly the published graph (`src/index.ts` reachable, minus tests and
+testSupport), so the guard lands precisely where the floor applies while the
+test tiers keep ES2022. Verified with the same probe: `build:types` exits 2
+with TS2550; with the probe removed, `check` / `check:e2e` / `build` exit 0 and
+`npm test` passes 8 files / 76 tests. README updated to describe the enforced
+rule.
