@@ -1,4 +1,8 @@
-import { TFile, Vault } from 'obsidian';
+// `import type`, not a plain import: the vitest tiers have NO runtime 'obsidian'
+// (the stand-in module was deleted — see vitest.config.ts), so this module must
+// erase to zero host imports. `import type` makes that a COMPILE-TIME guarantee
+// instead of relying on the bundler electing to elide an unused value import.
+import type { TFile, Vault } from 'obsidian';
 import { DocFile } from '../DocFile';
 import { FileContentAccess } from '../FileContentAccess';
 
@@ -30,7 +34,10 @@ export class VaultFileContentAccess implements FileContentAccess {
    * caller may legitimately hand over a plain `{ path, extension }`. A cast
    * would be a lie that only surfaces deep inside Obsidian; the lookup is a
    * hash-map hit and turns "not a real vault file" into an honest error here.
-   * (Requires Obsidian >= 1.5.7 for `Vault.getFileByPath`.)
+   *
+   * `Vault.getFileByPath` is why the package declares
+   * `peerDependencies.obsidian: ">=1.5.7"` — on an older host it is `undefined`
+   * and every call here would die with a bare TypeError. Keep the two in sync.
    */
   private resolve(file: DocFile): TFile {
     const resolved = this.vault.getFileByPath(file.path);

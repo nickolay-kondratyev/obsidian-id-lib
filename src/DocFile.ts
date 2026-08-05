@@ -12,6 +12,14 @@ export interface DocFile {
   /** Vault-absolute path, e.g. `notes/a.md` — Obsidian's `TFile.path`. */
   readonly path: string;
 
-  /** Lowercase extension WITHOUT the dot, e.g. `md` — Obsidian's `TFile.extension`. */
+  /**
+   * Extension WITHOUT the dot, e.g. `md` — Obsidian's `TFile.extension`, which
+   * is the trailing segment of the file name verbatim.
+   *
+   * Format dispatch matches it EXACTLY and case-sensitively (`md`, `canvas`),
+   * deliberately: Obsidian itself only treats lowercase `.md`/`.canvas` as
+   * those formats, so normalizing here would make the library write ids into
+   * files the host renders as plain text.
+   */
   readonly extension: string;
 }

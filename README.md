@@ -164,6 +164,12 @@ npm install obsidian-id-lib
 have `obsidian` and mark it external in their plugin build, as every Obsidian
 plugin does.
 
+**Obsidian floor: 1.5.7** (`peerDependencies`), because
+`VaultFileContentAccess` resolves a `DocFile` to the vault's own `TFile` via
+`Vault.getFileByPath`. Consuming plugins should also set `minAppVersion` to at
+least `1.5.7` in their `manifest.json` — the peer range guards the build, the
+manifest guards the user.
+
 **Runtime floor:** shipped `dist/` is **ES2021** — syntax via esbuild
 `--target=es2021`, built-ins via `lib: ES2021` in `tsconfig.build.json`, whose
 include is exactly the published graph. ES2022 built-ins (`Array.prototype.at`,
@@ -258,8 +264,9 @@ would silently miss the `import type`s it mainly exists to catch.
 Known deviations from the strategy doc, tracked in `_tickets/`: the e2e
 viewport-routing tags do not apply — the e2e tier drives one real Obsidian
 window, not two browser projects; and there is no scenario-count reconciler,
-so narrowing a runner config's feature glob would shrink the run silently. The tag audit pins the exact set of feature
-files, which catches a deleted or moved one but not a narrowed glob.
+so narrowing a runner config's feature glob would shrink the run silently. The
+tag audit pins the exact set of feature files, which catches a deleted or moved
+one but not a narrowed glob.
 
 ### e2e (real Obsidian)
 

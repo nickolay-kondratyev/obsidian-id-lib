@@ -57,7 +57,7 @@
 		"prepublishOnly": "npm run check && npm test"
 	},
 	"peerDependencies": {
-		"obsidian": "*"
+		"obsidian": ">=1.5.7"
 	},
 	"devDependencies": {
 		"@playwright/test": "1.61.1",

@@ -59,10 +59,12 @@ class MyFileAccess implements FileContentAccess {
 }
 ```
 
-That is exactly what the bundled `VaultFileContentAccess` does. If you would
-rather keep taking a `TFile`, declare the parameter as
-`DocFile & Pick<TFile, 'stat'>`-style narrowing on YOUR side only — the library
-will not enforce it, so prefer the path lookup above.
+That is exactly what the bundled `VaultFileContentAccess` does.
+
+There is no type-level way to "keep taking a `TFile`" safely: narrowing your
+parameter back to `TFile` still compiles (that is the bivariance above) but it
+does not stop the library handing you a plain object — it only hides that it
+can. Resolve by path, as above.
 
 ### 2. `VaultFileContentAccess` resolves by path
 
@@ -71,6 +73,11 @@ before touching it, rather than assuming the argument *is* a `TFile`.
 Consequences:
 
 - **Minimum Obsidian version 1.5.7** (when `Vault.getFileByPath` was added).
+  Declared as `peerDependencies: { "obsidian": ">=1.5.7" }`, which protects
+  your *build*. It does NOT protect your users — **also raise
+  `minAppVersion` to at least `1.5.7` in your plugin's `manifest.json`**,
+  otherwise a user on an older Obsidian installs your plugin happily and every
+  `ensureDocId` dies with `this.vault.getFileByPath is not a function`.
 - Passing a path that is not a file in the vault now rejects with
   `File not found: <path>` instead of failing somewhere inside Obsidian.
 

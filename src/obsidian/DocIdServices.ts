@@ -1,4 +1,6 @@
-import { Vault } from 'obsidian';
+// `import type` so this module erases to zero host imports at runtime — see the
+// same note in VaultFileContentAccess.ts.
+import type { Vault } from 'obsidian';
 import { DocIdService, DocIdServiceDefault } from '../DocIdService';
 import { DocIdGeneratorDefault } from '../DocIdGenerator';
 import { FrontmatterDocIdStore } from '../FrontmatterDocIdStore';
