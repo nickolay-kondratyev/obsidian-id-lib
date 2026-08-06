@@ -1,17 +1,17 @@
 ---
 id: nid_1s5ujs7nvq1ddrik8iuxnj730_e
-title: "e2e: cover canvas frontmatter + restart round-trip"
-status: open
+title: 'e2e: cover canvas frontmatter + restart round-trip'
+status: in_progress
 deps: []
 links: [nid_ep8dz7rkoyydissrr5e8fvtyy_e]
-created_iso: 2026-08-04T18:23:59Z
-status_updated_iso: 2026-08-04T18:23:59Z
+created_iso: '2026-08-04T18:23:59Z'
+status_updated_iso: '2026-08-06T20:05:55Z'
 type: task
 priority: 2
 assignee: nickolaykondratyev
 tags: [e2e]
+pwd: /home/nickolaykondratyev/git_repos/nickolay-kondratyev_obsidian-id-lib
 ---
-
 The e2e wire-up landed (ticket nid_ep8dz7rkoyydissrr5e8fvtyy_e) with ONE smoke spec:
 `e2e/docId.e2e.ts` asserts ensureDocId writes an id to `plain.md` on disk.
 
@@ -36,4 +36,3 @@ null AND mints nothing (read paths never write).
 Keep the suite small — every case costs an Electron boot. See
 /Users/nkondrat/vintrin-env/_cross_repo_comm/obsidian-id-lib-e2e-setup.md §7
 for the scope rule.
-
