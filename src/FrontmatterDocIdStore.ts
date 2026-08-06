@@ -8,13 +8,13 @@ const FRONTMATTER_BLOCK_REGEX = /^---\r?\n([\s\S]*?)\r?\n---(?:\r?\n|$)/;
 // Degenerate empty block ('---' directly followed by the closing '---') —
 // FRONTMATTER_BLOCK_REGEX requires a body line, so it misses this shape.
 const EMPTY_FRONTMATTER_BLOCK_REGEX = /^---\r?\n---(?:\r?\n|$)/;
-// Top-level (unindented) id entry — plain or quoted key — carrying a value.
-// [ \t] (not \s) on purpose: \s crosses newlines and would swallow the next
-// line of a nested mapping as the "value".
-const FRONTMATTER_ID_LINE_REGEX = /^(?:id|"id"|'id')[ \t]*:[ \t]*(.+)$/m;
-// Top-level id entry with NO value on its line (YAML null, or a nested
-// mapping whose entries follow on indented lines).
-const FRONTMATTER_VALUELESS_ID_LINE_REGEX = /^(?:id|"id"|'id')[ \t]*:[ \t]*$/m;
+// Top-level (unindented) id entry — plain or quoted key. Group 1 captures the
+// raw remainder after `id:`, which may be empty (`id:`, a null value) or hold a
+// scalar/comment. [ \t] (not \s) on purpose: \s crosses newlines and would
+// swallow the next line of a nested mapping as the "value". `.*` (not `.+`) so
+// a valueless `id:` also matches — read/write then agree by construction: a
+// line is fillable iff parseYamlScalar sees no value in it.
+const FRONTMATTER_ID_LINE_REGEX = /^(?:id|"id"|'id')[ \t]*:[ \t]*(.*)$/m;
 // Opening frontmatter delimiter line.
 const FRONTMATTER_OPENING_REGEX = /^---\r?\n/;
 
@@ -101,18 +101,23 @@ export class FrontmatterDocIdStore implements DocIdStore {
   }
 
   private writeIdIntoBlock(content: string, blockBody: string, newId: string, eol: string): WriteOutcome {
-    const valuelessIdLine = FRONTMATTER_VALUELESS_ID_LINE_REGEX.exec(blockBody);
-    if (valuelessIdLine) {
-      if (this.isFollowedByIndentedLine(blockBody, valuelessIdLine)) {
-        // `id:` opens a nested mapping — an occupied (unusable) slot that
-        // must never be overwritten.
+    const idLine = FRONTMATTER_ID_LINE_REGEX.exec(blockBody);
+    if (idLine) {
+      // A real scalar would have been caught by the readIdFromRawContent
+      // re-check in writeIdIntoContent, so any id line reaching here holds no
+      // usable value: it is empty (`id:`), empty-quoted (`id: ""`), or a
+      // comment (`id: # todo`) — all fillable — UNLESS it opens a nested
+      // mapping, which is an occupied slot we must never overwrite. A comment
+      // can sit on the opening line of a nested mapping (`id: # c` then indented
+      // entries), so the value on the line is irrelevant here: an indented
+      // continuation line is what marks the slot as occupied.
+      if (this.isFollowedByIndentedLine(blockBody, idLine)) {
         return { content, id: null };
       }
-      // `id:` with an empty (null) value → fill it in place. Matching on the
-      // full content is safe: every line before this one failed the same
-      // regex, so the first match in content IS the block's line.
+      // Fill the value in place. Matching on the full content is safe: the
+      // block sits at the top of the file, so its id line is the first match.
       return {
-        content: content.replace(FRONTMATTER_VALUELESS_ID_LINE_REGEX, `id: ${newId}`),
+        content: content.replace(FRONTMATTER_ID_LINE_REGEX, `id: ${newId}`),
         id: newId,
       };
     }
@@ -135,8 +140,9 @@ export class FrontmatterDocIdStore implements DocIdStore {
   /**
    * Minimal YAML scalar handling for the fast path:
    * - quoted value → content of the first "..." / '...' token
-   * - unquoted value → everything before a ` #` comment (YAML requires
-   *   whitespace before '#', so `a#b` stays intact)
+   * - unquoted value → everything before a `#` comment. YAML starts a comment
+   *   at a `#` that begins the value or is preceded by whitespace, so a
+   *   comment-only value (`# todo`) yields empty while `a#b` stays intact.
    */
   private parseYamlScalar(raw: string): string {
     // Backreference \1 closes with the same quote that opened.
@@ -144,6 +150,6 @@ export class FrontmatterDocIdStore implements DocIdStore {
     if (quoted?.[2] !== undefined) {
       return quoted[2];
     }
-    return raw.replace(/\s#.*$/, '').trim();
+    return raw.replace(/(?:^|\s)#.*$/, '').trim();
   }
 }
