@@ -7,6 +7,12 @@ const FRONTMATTER_ID_KEY = 'id';
 // Obsidian serializes .canvas JSON with tab indentation — match it on write.
 const CANVAS_JSON_INDENT = '\t';
 
+/** Outcome of one atomic canvas write attempt. */
+interface WriteOutcome {
+  content: string;
+  id: string | null;
+}
+
 /**
  * Doc id store for .canvas files: the id lives in the canvas JSON under
  * metadata.frontmatter.id. Missing metadata/frontmatter objects are created.
@@ -34,17 +40,17 @@ export class CanvasDocIdStore implements DocIdStore {
     }
 
     const newId = this.docIdGenerator.generate();
+    // Capture the id actually observed/written inside the atomic transform: on
+    // a bail we must report the id that persisted in the vault, NOT the newId we
+    // discarded — otherwise consumers indexing by the returned id diverge from
+    // the file (README idempotency-backstop guarantee).
+    let resultId: string | null = null;
     await this.fileContentAccess.process(file, (content) => {
-      // Re-parse inside the atomic read-modify-write: the content may have
-      // changed since the precheck read (and may have gained an id).
-      const current = this.parseCanvas(content, file.path);
-      if (current === null || this.readIdState(current).kind === 'present') {
-        return content;
-      }
-      this.writeId(current, newId);
-      return JSON.stringify(current, null, CANVAS_JSON_INDENT);
+      const outcome = this.writeIdIntoContent(content, newId, file.path);
+      resultId = outcome.id;
+      return outcome.content;
     });
-    return newId;
+    return resultId;
   }
 
   async getId(file: DocFile): Promise<string | null> {
@@ -57,6 +63,24 @@ export class CanvasDocIdStore implements DocIdStore {
   }
 
   // ── private ─────────────────────────────────────────────────────────────────
+
+  /**
+   * Re-parses inside the atomic read-modify-write: the content may have changed
+   * since the precheck read. Bails (content unchanged) when it turned malformed
+   * or already gained an id, reporting the id that persists in that case.
+   */
+  private writeIdIntoContent(content: string, newId: string, path: string): WriteOutcome {
+    const current = this.parseCanvas(content, path);
+    if (current === null) {
+      return { content, id: null };
+    }
+    const existing = this.readIdState(current);
+    if (existing.kind === 'present') {
+      return { content, id: existing.id };
+    }
+    this.writeId(current, newId);
+    return { content: JSON.stringify(current, null, CANVAS_JSON_INDENT), id: newId };
+  }
 
   private parseCanvas(content: string, path: string): Record<string, unknown> | null {
     // A brand-new canvas is created by Obsidian as an EMPTY file — treat
