@@ -48,6 +48,30 @@ describe('FrontmatterDocIdStore', () => {
       // THEN null, read-only (no write happened)
       expect({ id, writes: fileAccess.processCallCount }).toEqual({ id: null, writes: 0 });
     });
+
+    it('should treat a double-quoted empty id value as absent', async () => {
+      // GIVEN an id whose value is an empty double-quoted string (YAML: empty)
+      const { store, fileAccess } = setup();
+      const file = fileAccess.seedNote('notes/a.md', '---\nid: ""\n---\n');
+      // WHEN / THEN
+      expect(await store.getId(file)).toBeNull();
+    });
+
+    it('should treat a single-quoted empty id value as absent', async () => {
+      // GIVEN an id whose value is an empty single-quoted string (YAML: empty)
+      const { store, fileAccess } = setup();
+      const file = fileAccess.seedNote('notes/a.md', "---\nid: ''\n---\n");
+      // WHEN / THEN
+      expect(await store.getId(file)).toBeNull();
+    });
+
+    it('should treat a comment-only id value as absent (YAML: null)', async () => {
+      // GIVEN an id line carrying only a comment
+      const { store, fileAccess } = setup();
+      const file = fileAccess.seedNote('notes/a.md', '---\nid: # todo\n---\n');
+      // WHEN / THEN
+      expect(await store.getId(file)).toBeNull();
+    });
   });
 
   describe('ensureId', () => {
@@ -195,6 +219,39 @@ describe('FrontmatterDocIdStore', () => {
       // WHEN
       const id = await store.ensureId(file);
       // THEN the empty id line is filled without duplicating the key
+      expect({ id, content: fileAccess.getContent('notes/a.md') })
+        .toEqual({ id: GENERATED_ID, content: `---\ntags: x\nid: ${GENERATED_ID}\n---\n` });
+    });
+
+    it('should fill a double-quoted empty id value in place (no duplicate key)', async () => {
+      // GIVEN frontmatter with an empty double-quoted id
+      const { store, fileAccess } = setup();
+      const file = fileAccess.seedNote('notes/a.md', '---\ntags: x\nid: ""\n---\n');
+      // WHEN
+      const id = await store.ensureId(file);
+      // THEN the value is filled in place — exactly one id line, no duplicate
+      expect({ id, content: fileAccess.getContent('notes/a.md') })
+        .toEqual({ id: GENERATED_ID, content: `---\ntags: x\nid: ${GENERATED_ID}\n---\n` });
+    });
+
+    it('should fill a single-quoted empty id value in place (no duplicate key)', async () => {
+      // GIVEN frontmatter with an empty single-quoted id
+      const { store, fileAccess } = setup();
+      const file = fileAccess.seedNote('notes/a.md', "---\ntags: x\nid: ''\n---\n");
+      // WHEN
+      const id = await store.ensureId(file);
+      // THEN the value is filled in place — exactly one id line, no duplicate
+      expect({ id, content: fileAccess.getContent('notes/a.md') })
+        .toEqual({ id: GENERATED_ID, content: `---\ntags: x\nid: ${GENERATED_ID}\n---\n` });
+    });
+
+    it('should fill a comment-only id value in place (no duplicate key)', async () => {
+      // GIVEN frontmatter whose id line carries only a comment
+      const { store, fileAccess } = setup();
+      const file = fileAccess.seedNote('notes/a.md', '---\ntags: x\nid: # todo\n---\n');
+      // WHEN
+      const id = await store.ensureId(file);
+      // THEN the value is filled in place — the comment and duplicate are gone
       expect({ id, content: fileAccess.getContent('notes/a.md') })
         .toEqual({ id: GENERATED_ID, content: `---\ntags: x\nid: ${GENERATED_ID}\n---\n` });
     });
