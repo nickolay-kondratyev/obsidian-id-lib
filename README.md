@@ -143,6 +143,11 @@ own copy. The ONLY shared state between copies is a lock registry on
 - Locking is per file path: distinct files run in parallel; same-path
   `ensureDocId` calls serialize FIFO — across plugins.
 
+The key, plain-`Map` value shape, and native-`Promise` tails are pinned by a
+`cross-version wire contract` test suite (`src/CrossPluginPathLock.test.ts`), so
+they can only change as a deliberate, breaking edit — not silently. This is the
+settled interop surface: everything else in the library may evolve freely.
+
 ## Guarantees
 
 - **Idempotency backstop**: even if the lock is bypassed (a third plugin not

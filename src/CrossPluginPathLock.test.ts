@@ -184,4 +184,41 @@ describe('CrossPluginPathLock', () => {
       expect(await lock.runExclusive('a', async () => 'survived')).toBe('survived');
     });
   });
+
+  // ── Cross-version wire contract ─────────────────────────────────────────────
+  // These pin the shared-state SHAPE that lets a differently-versioned bundled
+  // copy interoperate (README ap_e7fWGWziwxrLmnegjIYKX_E). Behavioral tests above
+  // import ID_LOCK_REGISTRY_KEY as a symbol, so they would still pass if the key
+  // literal or value shape silently changed — these guard exactly that, so a
+  // contract-breaking change can only happen deliberately (a failing test).
+  describe('cross-version wire contract', () => {
+    it('should keep the registry key at the FROZEN v1 literal (foreign copies key off this exact string)', () => {
+      // A rename or _v1_ bump silently stops old and new copies from sharing one
+      // registry — each would create its own, and same-path work would NOT
+      // serialize across versions. Change this literal only as a deliberate break.
+      expect(ID_LOCK_REGISTRY_KEY).toBe('__obsidian_id_lib_path_lock_registry_v1__');
+    });
+
+    it('should store the registry as a PLAIN Map (foreign copies do Map.get/set/delete on it)', () => {
+      // GIVEN a fresh host
+      const host: Record<string, unknown> = {};
+      const lock = new CrossPluginPathLock(host);
+      // WHEN the registry is created
+      void lock.runExclusive('a', async () => 'x');
+      // THEN it is a plain Map instance — not a subclass with overridden methods
+      // a foreign copy might not honor (value shape = Map<string, Promise>)
+      expect(Object.getPrototypeOf(host[ID_LOCK_REGISTRY_KEY])).toBe(Map.prototype);
+    });
+
+    it('should store a NATIVE Promise as the tail (foreign copies call .then on it)', () => {
+      // GIVEN a fresh host and an in-flight task holding the tail
+      const host: Record<string, unknown> = {};
+      const lock = new CrossPluginPathLock(host);
+      void lock.runExclusive('a', () => new Promise<void>(() => undefined));
+      const tail = registryOn(host).get('a');
+      // THEN the tail is a native Promise (not a custom thenable/subclass) so a
+      // foreign copy's `tail.then(...)` acquire step behaves as the protocol expects
+      expect(Object.getPrototypeOf(tail)).toBe(Promise.prototype);
+    });
+  });
 });
