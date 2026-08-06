@@ -1,0 +1,14 @@
+{
+	"nodes": [
+		{
+			"id": "a1b2c3d4e5f6a7b8",
+			"type": "text",
+			"text": "A card in a fixture canvas.",
+			"x": -120,
+			"y": -40,
+			"width": 260,
+			"height": 80
+		}
+	],
+	"edges": []
+}
