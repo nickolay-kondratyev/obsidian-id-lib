@@ -107,8 +107,11 @@ export class FrontmatterDocIdStore implements DocIdStore {
       // re-check in writeIdIntoContent, so any id line reaching here holds no
       // usable value: it is empty (`id:`), empty-quoted (`id: ""`), or a
       // comment (`id: # todo`) — all fillable — UNLESS it opens a nested
-      // mapping, which is an occupied slot we must never overwrite.
-      if (idLine[1] === '' && this.isFollowedByIndentedLine(blockBody, idLine)) {
+      // mapping, which is an occupied slot we must never overwrite. A comment
+      // can sit on the opening line of a nested mapping (`id: # c` then indented
+      // entries), so the value on the line is irrelevant here: an indented
+      // continuation line is what marks the slot as occupied.
+      if (this.isFollowedByIndentedLine(blockBody, idLine)) {
         return { content, id: null };
       }
       // Fill the value in place. Matching on the full content is safe: the

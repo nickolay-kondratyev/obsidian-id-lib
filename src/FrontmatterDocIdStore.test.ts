@@ -300,6 +300,18 @@ describe('FrontmatterDocIdStore', () => {
         .toEqual({ id: null, content });
     });
 
+    it('should NOT overwrite a nested-mapping id slot whose opening line carries a comment', async () => {
+      // GIVEN an id key that opens a nested mapping AND carries a trailing comment
+      const { store, fileAccess } = setup();
+      const content = '---\nid: # todo\n  weird: true\n---\nbody';
+      const file = fileAccess.seedNote('notes/a.md', content);
+      // WHEN
+      const id = await store.ensureId(file);
+      // THEN no usable id, and the mapping is left byte-identical (not corrupted)
+      expect({ id, content: fileAccess.getContent('notes/a.md') })
+        .toEqual({ id: null, content });
+    });
+
     it('should NOT match an indented (nested) id key as the document id', async () => {
       // GIVEN frontmatter where `id` only exists nested under another key
       const { store, fileAccess } = setup();
