@@ -68,15 +68,22 @@ const LAUNCH_TIMEOUT_MS = 60_000;
 /** Graceful-shutdown grace before SIGKILL. */
 const FORCE_KILL_AFTER_MS = 10_000;
 const WINDOW_POLL_INTERVAL_MS = 250;
+/** Core canvas view construction + its debounced save flush are both async. */
+const CANVAS_ROUND_TRIP_TIMEOUT_MS = 30_000;
+const CANVAS_ROUND_TRIP_POLL_MS = 100;
+/** Nudge distance (px) applied to a node so the canvas is genuinely dirtied. */
+const CANVAS_NODE_NUDGE_PX = 17;
 /** App boot → `layoutReady` covers vault index + workspace restore. */
 const WORKSPACE_READY_TIMEOUT_MS = 60_000;
 const PLUGIN_READY_TIMEOUT_MS = 30_000;
 
 export class ObsidianHarness {
+  // Not readonly: relaunch() swaps all three for a fresh Obsidian while keeping
+  // the harness identity (and its owner's reference) intact.
   private constructor(
-    private readonly browser: Browser,
-    private readonly obsidianProcess: childProcess.ChildProcess,
-    readonly page: Page,
+    private browser: Browser,
+    private obsidianProcess: childProcess.ChildProcess,
+    public page: Page,
   ) {
   }
 
@@ -84,6 +91,22 @@ export class ObsidianHarness {
     ObsidianHarness.prepareVaultCopy();
     ObsidianHarness.prepareSandboxConfigDir(VAULT_COPY_DIR);
     return ObsidianHarness.spawnAndConnect();
+  }
+
+  /**
+   * Closes this Obsidian and boots a FRESH one against the SAME throwaway vault
+   * copy — deliberately WITHOUT re-seeding it (no prepareVaultCopy /
+   * prepareSandboxConfigDir), so files and ids written before the relaunch are
+   * read back off DISK. That is the whole point: it proves persistence across a
+   * real app restart, not a hit on the previous session's in-memory cache.
+   */
+  async relaunch(): Promise<void> {
+    await this.close();
+    const next = await ObsidianHarness.spawnAndConnect();
+    // Same class → private fields of `next` are reachable here.
+    this.browser = next.browser;
+    this.obsidianProcess = next.obsidianProcess;
+    this.page = next.page;
   }
 
   async close(): Promise<void> {
@@ -149,6 +172,69 @@ export class ObsidianHarness {
         await (window as unknown as { app: any }).app.vault.create(targetPath, body);
       },
       { targetPath: vaultPath, body: content },
+    );
+  }
+
+  /**
+   * Opens a .canvas in Obsidian's OWN core canvas editor, makes a real node
+   * edit, and lets core serialize + save the file back to disk — the round-trip
+   * that proves an arbitrary `metadata.frontmatter.id` key survives Obsidian's
+   * canvas writer. That survival is a forward-compat behaviour of core's
+   * serializer (it spreads the originally-loaded object), NOT a documented
+   * guarantee, so no fake can vouch for it and it can regress in any release.
+   *
+   * Deterministic, not a fixed sleep: waits until core's own `view.lastSavedData`
+   * changes, i.e. the debounced write has actually flushed to disk.
+   */
+  async roundTripCanvasThroughCore(vaultPath: string): Promise<void> {
+    await this.page.evaluate(
+      async ({ targetPath, timeoutMs, pollMs, nudgePx }) => {
+        const app = (window as unknown as { app: any }).app;
+        const file = app.vault.getAbstractFileByPath(targetPath);
+        if (!file) {
+          throw new Error(`e2e: canvas file not found: path=[${targetPath}]`);
+        }
+        const leaf = app.workspace.getLeaf(true);
+        await leaf.openFile(file);
+
+        const pollUntil = async <T>(read: () => T | undefined, whatFailed: string): Promise<T> => {
+          const deadline = Date.now() + timeoutMs;
+          while (Date.now() < deadline) {
+            const value = read();
+            if (value !== undefined) {
+              return value;
+            }
+            await new Promise((resolve) => setTimeout(resolve, pollMs));
+          }
+          throw new Error(`e2e: ${whatFailed}`);
+        };
+
+        // The view + its canvas model construct asynchronously after openFile.
+        const canvas = await pollUntil(() => {
+          const model = (leaf.view as any)?.canvas;
+          return model?.nodes?.size > 0 ? model : undefined;
+        }, 'core canvas view never constructed with nodes');
+
+        const savedBefore = (leaf.view as any).lastSavedData as string;
+        // A genuine model edit dirties the canvas so core persists it through
+        // its own serializer — the exact path a user editing the canvas takes.
+        const node = canvas.nodes.values().next().value;
+        node.moveTo({ x: node.x + nudgePx, y: node.y });
+        canvas.requestSave();
+
+        // Core sets lastSavedData to the string it just wrote; a change means
+        // the debounced save landed on disk.
+        await pollUntil(
+          () => ((leaf.view as any).lastSavedData !== savedBefore ? true : undefined),
+          'core canvas never saved after the edit',
+        );
+      },
+      {
+        targetPath: vaultPath,
+        timeoutMs: CANVAS_ROUND_TRIP_TIMEOUT_MS,
+        pollMs: CANVAS_ROUND_TRIP_POLL_MS,
+        nudgePx: CANVAS_NODE_NUDGE_PX,
+      },
     );
   }
 
