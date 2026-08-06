@@ -233,5 +233,31 @@ describe('CanvasDocIdStore', () => {
       // THEN the concurrent writer's id survives byte-identically
       expect(fileAccess.getContent('boards/a.canvas')).toBe(concurrentContent);
     });
+
+    it('should RETURN the concurrently-written id (not the generated one) when it bails on write', async () => {
+      // GIVEN an id-less canvas whose content gains a FOREIGN id right before the transform
+      const concurrentContent = '{"metadata":{"frontmatter":{"id":"docid_FOREIGN_e"}}}';
+      const fileAccess = new ContentSwappingFileContentAccess(concurrentContent);
+      const store = new CanvasDocIdStore(fileAccess, new FixedDocIdGenerator(GENERATED_ID));
+      const file = fileAccess.seedNote('boards/a.canvas', '{"nodes":[]}');
+      // WHEN
+      const id = await store.ensureId(file);
+      // THEN the caller receives the id actually persisted in the vault, not the discarded newId
+      expect(id).toBe('docid_FOREIGN_e');
+    });
+
+    it('should return null when content turns malformed between precheck and atomic write', async () => {
+      // GIVEN an id-less canvas whose content becomes malformed right before the transform
+      const consoleError = vi.spyOn(console, 'error').mockImplementation(() => undefined);
+      const fileAccess = new ContentSwappingFileContentAccess('{not json');
+      const store = new CanvasDocIdStore(fileAccess, new FixedDocIdGenerator(GENERATED_ID));
+      const file = fileAccess.seedNote('boards/a.canvas', '{"nodes":[]}');
+      // WHEN
+      const id = await store.ensureId(file);
+      // THEN the caller learns no usable id was persisted, and the malformed content is untouched
+      expect({ id, content: fileAccess.getContent('boards/a.canvas') })
+        .toEqual({ id: null, content: '{not json' });
+      consoleError.mockRestore();
+    });
   });
 });
