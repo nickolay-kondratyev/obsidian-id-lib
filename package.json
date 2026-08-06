@@ -53,6 +53,7 @@
 		"test:watch": "vitest",
 		"setup:obsidian": "bash scripts/setup-obsidian-bin.sh",
 		"test:e2e": "bash scripts/run-e2e.sh",
+		"test:all": "npm run check && npm run check:e2e && npm run test && npm run test:e2e",
 		"prepack": "npm run build",
 		"prepublishOnly": "npm run check && npm test"
 	},
