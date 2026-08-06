@@ -1,17 +1,17 @@
 ---
 id: nid_iyor6ne71sou9xiy0d4okfc5z_e
-title: "FrontmatterDocIdStore mishandles degenerate id values (empty-quoted, comment-only)"
-status: open
+title: FrontmatterDocIdStore mishandles degenerate id values (empty-quoted, comment-only)
+status: in_progress
 deps: [nid_ep8dz7rkoyydissrr5e8fvtyy_e]
 links: [nid_37g3zp3ca1k9vxslfrw1i3u3g_e]
-created_iso: 2026-08-04T17:38:51Z
-status_updated_iso: 2026-08-04T17:38:51Z
+created_iso: '2026-08-04T17:38:51Z'
+status_updated_iso: '2026-08-06T17:18:05Z'
 type: bug
 priority: 1
 assignee: CC_WITH-nickolaykondratyev
 tags: [bug]
+pwd: /home/nickolaykondratyev/git_repos/nickolay-kondratyev_obsidian-id-lib
 ---
-
 Two related defects in src/FrontmatterDocIdStore.ts, both verified by repro:
 
 1) DUPLICATE id KEY on empty-string value. For frontmatter containing id: "" (or id: ''), readIdFromRawContent treats it as absent (empty scalar), but FRONTMATTER_VALUELESS_ID_LINE_REGEX requires nothing after the colon so it does not match either — writeIdIntoBlock falls through to "no id key → insert as first entry" (src/FrontmatterDocIdStore.ts:119-120). Result:
