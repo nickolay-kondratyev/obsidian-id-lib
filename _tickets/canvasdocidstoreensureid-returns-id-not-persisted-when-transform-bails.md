@@ -1,17 +1,17 @@
 ---
 id: nid_37g3zp3ca1k9vxslfrw1i3u3g_e
-title: "CanvasDocIdStore.ensureId returns id not persisted when transform bails"
-status: open
+title: CanvasDocIdStore.ensureId returns id not persisted when transform bails
+status: in_progress
 deps: [nid_ep8dz7rkoyydissrr5e8fvtyy_e]
 links: [nid_iyor6ne71sou9xiy0d4okfc5z_e]
-created_iso: 2026-08-04T17:38:41Z
-status_updated_iso: 2026-08-04T17:38:41Z
+created_iso: '2026-08-04T17:38:41Z'
+status_updated_iso: '2026-08-06T17:27:33Z'
 type: bug
 priority: 1
 assignee: CC_WITH-nickolaykondratyev
 tags: [bug]
+pwd: /home/nickolaykondratyev/git_repos/nickolay-kondratyev_obsidian-id-lib
 ---
-
 In src/CanvasDocIdStore.ts ensureId(), the transform passed to fileContentAccess.process() correctly bails (returns content unchanged) when the canvas gained an id between the precheck cachedRead and the atomic write, or when the content became malformed mid-flight. BUT ensureId then returns newId unconditionally (src/CanvasDocIdStore.ts:47).
 
 Verified repro: a foreign writer inserts docid_FOREIGN_e between the reads; the file persists docid_FOREIGN_e but the caller receives docid_NEWLY_GENERATED_e. Also returns newId instead of null when content turned malformed between reads.
