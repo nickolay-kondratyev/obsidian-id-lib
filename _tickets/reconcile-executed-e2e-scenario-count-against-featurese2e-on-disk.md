@@ -1,17 +1,17 @@
 ---
 id: nid_frudoe3d1o5bg56ze33cbm28z_e
-title: "Reconcile executed e2e scenario count against features/e2e on disk"
-status: open
+title: Reconcile executed e2e scenario count against features/e2e on disk
+status: in_progress
 deps: []
 links: [nid_imvuuievshgdtn84dcwsps1eq_e]
-created_iso: 2026-08-04T21:49:41Z
-status_updated_iso: 2026-08-04T21:49:41Z
+created_iso: '2026-08-04T21:49:41Z'
+status_updated_iso: '2026-08-07T17:43:33Z'
 type: task
 priority: 3
 assignee: CC_WITH-nickolaykondratyev
 tags: [testing, bdd]
+pwd: /home/nickolaykondratyev/git_repos/nickolay-kondratyev_obsidian-id-lib-mirror-1
 ---
-
 The BDD wire-up (nid_imvuuievshgdtn84dcwsps1eq_e) left one enforcement hole from `docs-internal/bdd-testing-strategy.md` ("Enforcement" / "Viewport routing"): nothing proves the e2e BDD tier actually EXECUTED the scenarios that exist on disk.
 
 What is covered today: `tests/features/FeatureFileTagAudit.ts` (run by `npm test`) bans any tag under `features/` and pins the exact list of feature files, so a deleted/moved feature file or a pasted `@skip`/`@only` fails the build.
@@ -23,4 +23,3 @@ Proposed (per the strategy doc): a custom Playwright reporter enabled only on th
 Also assert statically (in `npm test`, next to the tag audit) that the reporter is actually wired into `e2e/playwright.config.ts`: a run configured without the reporter has no reporter to complain.
 
 Current state of the deviation is recorded in README.md under "Known deviations".
-
