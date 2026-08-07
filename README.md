@@ -171,9 +171,6 @@ settled interop surface: everything else in the library may evolve freely.
   canvas gains an id between the precheck read and the atomic write (lock
   bypassed by a third writer), the write correctly bails but the NEW (unwritten)
   id is returned instead of the persisted one.
-- **Frontmatter: degenerate `id` values mishandled.** `id: ""` / `id: ''`
-  leads to a duplicate `id` key being inserted (invalid YAML); `id: # comment`
-  is read back with the comment text as the id.
 
 ## License
 
