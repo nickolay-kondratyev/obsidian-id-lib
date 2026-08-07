@@ -45,7 +45,10 @@ interface ProjectReconciliation {
 
 export default class ScenarioCountReporter implements Reporter {
   private readonly bddTestDir: string;
-  private readonly executedByProject = new Map<string, number>();
+  // Distinct scenario test IDs per project, NOT a raw tally: Playwright calls
+  // onTestEnd once per ATTEMPT, so a retried scenario (were `retries` ever
+  // raised above 0) would otherwise count twice and trip a false shortfall.
+  private readonly executedTestIdsByProject = new Map<string, Set<string>>();
   private bddProjectNames: readonly string[] = [];
 
   constructor(options: ScenarioCountReporterOptions) {
@@ -70,7 +73,12 @@ export default class ScenarioCountReporter implements Reporter {
     // A scenario skipped at RUNTIME did not execute — excluding it here is what
     // lets the reconciliation catch a `test.skip()` slipped into a step.
     if (project === undefined || result.status === 'skipped') return;
-    this.executedByProject.set(project, (this.executedByProject.get(project) ?? 0) + 1);
+    let testIds = this.executedTestIdsByProject.get(project);
+    if (testIds === undefined) {
+      testIds = new Set<string>();
+      this.executedTestIdsByProject.set(project, testIds);
+    }
+    testIds.add(test.id);
   }
 
   async onEnd(_result: FullResult): Promise<{ status: FullResult['status'] } | void> {
@@ -102,7 +110,7 @@ export default class ScenarioCountReporter implements Reporter {
       ];
     }
     return this.bddProjectNames
-      .map((project) => ({ project, executed: this.executedByProject.get(project) ?? 0 }))
+      .map((project) => ({ project, executed: this.executedTestIdsByProject.get(project)?.size ?? 0 }))
       .filter((reconciliation) => reconciliation.executed !== expected)
       .map((reconciliation) => describeShortfall(reconciliation, expected));
   }
