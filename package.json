@@ -1,6 +1,6 @@
 {
 	"name": "obsidian-id-lib",
-	"version": "0.1.1",
+	"version": "0.1.2",
 	"description": "Shared doc-id read/ensure for Obsidian plugins (md frontmatter + canvas) with cross-plugin write serialization.",
 	"keywords": [
 		"obsidian",
