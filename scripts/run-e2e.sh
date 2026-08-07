@@ -33,4 +33,11 @@ node e2e/fixtures/host-plugin/build.mjs
 # regenerated every run — generated specs are build output, never source).
 npx bddgen --config e2e/playwright.config.ts
 
+# Arms the scenario-count reconciler (e2e/scenarioCountReporter.ts): the FULL
+# run must prove it executed every scenario under features/e2e/. Off for ad-hoc
+# `npx playwright test` subset runs, which are meant to run less. Forwarded
+# filters ("$@", e.g. --project bdd) DO still trip it — a self-narrowed run is
+# indistinguishable from a config that dropped a project.
+export E2E_RECONCILE_SCENARIO_COUNT=1
+
 exec npx playwright test --config e2e/playwright.config.ts "$@"

@@ -1,7 +1,9 @@
 import * as path from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { defineConfig } from '@playwright/test';
+import type { ReporterDescription } from '@playwright/test';
 import { defineBddConfig } from 'playwright-bdd';
+import type { ScenarioCountReporterOptions } from './scenarioCountReporter';
 
 /**
  * Playwright config for the release-time e2e suite.
@@ -42,6 +44,20 @@ const bddTestDir = defineBddConfig({
   missingSteps: 'fail-on-gen',
 });
 
+/**
+ * The scenario-count reconciler (scenarioCountReporter.ts) is armed ONLY on the
+ * full `npm run test:e2e`, which sets this env var in scripts/run-e2e.sh. An
+ * ad-hoc `npx playwright test` subset run is meant to run less, so it stays off
+ * there. This wiring — the env var in the script and the reporter line below —
+ * is asserted statically in `npm test` (tests/features/E2eReporterWiring.ts),
+ * because a run configured without the reporter has no reporter to complain.
+ */
+const RECONCILE_SCENARIO_COUNT_ENV = 'E2E_RECONCILE_SCENARIO_COUNT';
+
+const scenarioCountReporter: ReporterDescription[] = process.env[RECONCILE_SCENARIO_COUNT_ENV]
+  ? [['./scenarioCountReporter.ts', { bddTestDir } satisfies ScenarioCountReporterOptions]]
+  : [];
+
 /** Booting a desktop Electron app + vault index is slow; unit-test timeouts don't apply. */
 const TEST_TIMEOUT_MS = 120_000;
 /** metadataCache reindex after a write is async; expect-retries need headroom. */
@@ -66,6 +82,6 @@ export default defineConfig({
   workers: 1,
   fullyParallel: false,
   retries: 0,
-  reporter: [['list']],
+  reporter: [['list'], ...scenarioCountReporter],
   outputDir: '../.tmp/e2e-artifacts',
 });

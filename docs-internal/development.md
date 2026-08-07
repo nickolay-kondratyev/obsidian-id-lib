@@ -101,12 +101,22 @@ bridgehead where the adapters translate. Enforced by dependency-cruiser
 `npm test`) with `tsPreCompilationDeps: true` — without that flag the rule
 would silently miss the `import type`s it mainly exists to catch.
 
-Known deviations from the strategy doc, tracked in `_tickets/`: the e2e
+Known deviation from the strategy doc, tracked in `_tickets/`: the e2e
 viewport-routing tags do not apply — the e2e tier drives one real Obsidian
-window, not two browser projects; and there is no scenario-count reconciler,
-so narrowing a runner config's feature glob would shrink the run silently. The
-tag audit pins the exact set of feature files, which catches a deleted or moved
-one but not a narrowed glob.
+window, not two browser projects.
+
+The tag audit (`tests/features/FeatureFileTagAudit.ts`, in `npm test`) pins the
+exact set of feature files and bans every tag, catching a deleted, moved, or
+`@skip`ped scenario — but not a narrowed runner config that shrinks the run
+silently. That config side is now closed by the scenario-count reconciler: a
+Playwright reporter (`e2e/scenarioCountReporter.ts`, pure logic in
+`e2e/scenarioCount.ts`) armed only on the full `npm run test:e2e`, which counts
+the scenarios each BDD project actually EXECUTED and reconciles them against
+`features/e2e/` parsed on disk with `@cucumber/gherkin` — failing the run on a
+narrowed glob, a changed `testDir`, a dropped project, or a runtime skip.
+Forwarded filters (`npm run test:e2e -- --project bdd`) trip it too and are
+named in the failure. Its own arming is asserted statically in `npm test` by
+`tests/features/E2eReporterWiring.ts`.
 
 ## e2e (real Obsidian)
 
